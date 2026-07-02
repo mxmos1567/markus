@@ -3,7 +3,7 @@ import { useServices } from '../../context/ServiceContext'
 import { SerifHeading } from '../../components/common/SerifHeading'
 import { GoldDivider } from '../../components/common/GoldDivider'
 import { Button } from '../../components/common/Button'
-import type { ImportMode } from '../../storage/IStorageProvider'
+import type { ImportMode } from '../../services/BackupService'
 
 export function ImportExportPage() {
   const { backup } = useServices()
@@ -43,8 +43,8 @@ export function ImportExportPage() {
       <div className="glass-panel space-y-4 rounded-sm p-6">
         <h2 className="font-display text-xl">Export a Backup</h2>
         <p className="text-sm text-mutedgray">
-          Downloads every shelf, slot, memory and media file as a single self-contained JSON file — safe to store for
-          decades, independent of this app.
+          Downloads every memory and media file as a single self-contained JSON file — safe to store for decades,
+          independent of this app.
         </p>
         <Button onClick={onExport} disabled={busy}>
           Export Full Backup

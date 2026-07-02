@@ -1,6 +1,7 @@
 export * from './common'
-export * from './Shelf'
-export * from './ShelfSlot'
 export * from './Memory'
 export * from './Media'
-export * from './User'
+
+export function memoryRoute(slug: string): string {
+  return `/memory/${slug}`
+}

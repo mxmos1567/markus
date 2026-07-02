@@ -9,8 +9,8 @@ export function HomePage() {
         <p className="text-xs uppercase tracking-[0.35em] text-gold">Memory Shelf</p>
         <SerifHeading className="text-4xl md:text-5xl">A digital museum for memories.</SerifHeading>
         <p className="text-sm leading-relaxed text-mutedgray">
-          Every compartment on the shelf holds one memory. Scan the QR code inside a shelf compartment to open it —
-          there is no list to browse, only the moment you were meant to find.
+          Each memory has its own printed QR code, kept on a shelf. Scan one to open it — there is no list to
+          browse, only the moment you were meant to find.
         </p>
         <GoldDivider className="mx-auto w-16" />
         <TimelineLink className="justify-center" />

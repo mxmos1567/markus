@@ -1,52 +1,72 @@
-import type { IStorageProvider } from '../storage/IStorageProvider'
 import type { CreateMemoryInput, Memory } from '../domain/models'
+import { getDb } from '../db/database'
 import { createId, nowIso } from '../utils/id'
+import { slugify } from '../utils/slug'
 
 export class MemoryRepository {
-  private readonly storage: IStorageProvider
-
-  constructor(storage: IStorageProvider) {
-    this.storage = storage
+  async list(): Promise<Memory[]> {
+    const db = await getDb()
+    return db.getAll('memories')
   }
 
-  list(): Promise<Memory[]> {
-    return this.storage.listMemories()
+  async get(id: string): Promise<Memory | null> {
+    const db = await getDb()
+    return (await db.get('memories', id)) ?? null
   }
 
-  get(id: string): Promise<Memory | null> {
-    return this.storage.getMemory(id)
+  async getBySlug(slug: string): Promise<Memory | null> {
+    const db = await getDb()
+    return (await db.getFromIndex('memories', 'slug', slug)) ?? null
+  }
+
+  private async uniqueSlug(title: string): Promise<string> {
+    const db = await getDb()
+    const base = slugify(title) || 'memory'
+    let slug = base
+    let attempt = 1
+    while (await db.getFromIndex('memories', 'slug', slug)) {
+      slug = `${base}-${++attempt}`
+    }
+    return slug
   }
 
   async create(input: CreateMemoryInput): Promise<Memory> {
+    const db = await getDb()
     const now = nowIso()
     const memory: Memory = {
       id: createId(),
-      ...input,
-      slotId: null,
+      slug: await this.uniqueSlug(input.title),
+      title: input.title,
+      date: input.date,
+      description: input.description,
       createdAt: now,
       updatedAt: now,
     }
-    return this.storage.saveMemory(memory)
+    await db.put('memories', memory)
+    return memory
   }
 
   async update(memory: Memory): Promise<Memory> {
-    return this.storage.saveMemory({ ...memory, updatedAt: nowIso() })
-  }
-
-  async setSlot(memoryId: string, slotId: string | null): Promise<Memory> {
-    const memory = await this.storage.getMemory(memoryId)
-    if (!memory) throw new Error(`Memory ${memoryId} not found`)
-    return this.storage.saveMemory({ ...memory, slotId, updatedAt: nowIso() })
+    const db = await getDb()
+    const updated: Memory = { ...memory, updatedAt: nowIso() }
+    await db.put('memories', updated)
+    return updated
   }
 
   async delete(id: string): Promise<void> {
-    await this.storage.deleteMemory(id)
+    const db = await getDb()
+    const tx = db.transaction(['memories', 'media', 'mediaBlobs'], 'readwrite')
+    const assets = await tx.objectStore('media').index('memoryId').getAll(id)
+    await Promise.all([
+      tx.objectStore('memories').delete(id),
+      ...assets.map((asset) => tx.objectStore('media').delete(asset.id)),
+      ...assets.map((asset) => tx.objectStore('mediaBlobs').delete(asset.blobKey)),
+    ])
+    await tx.done
   }
 
-  async listPublicSorted(): Promise<Memory[]> {
-    const memories = await this.storage.listMemories()
-    return memories
-      .filter((memory) => memory.visibility === 'public')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  async listSorted(): Promise<Memory[]> {
+    const memories = await this.list()
+    return memories.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
 }

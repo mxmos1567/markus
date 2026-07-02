@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons.svg'],
+      includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Memory Shelf',
         short_name: 'Memory Shelf',
@@ -34,11 +34,6 @@ export default defineConfig({
               cacheName: 'memory-shelf-images',
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
-          },
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: { cacheName: 'memory-shelf-api' },
           },
         ],
       },

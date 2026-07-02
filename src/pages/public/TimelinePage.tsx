@@ -6,7 +6,7 @@ import { SerifHeading } from '../../components/common/SerifHeading'
 import { GoldDivider } from '../../components/common/GoldDivider'
 import { LoadingScreen } from '../../components/common/LoadingScreen'
 
-const EMPTY_FILTERS: TimelineFilters = { year: null, month: null, tag: null, shelfId: null }
+const EMPTY_FILTERS: TimelineFilters = { year: null, month: null }
 
 export function TimelinePage() {
   const { entries, loading, filterOptions } = useTimelineData()
@@ -22,15 +22,17 @@ export function TimelinePage() {
         <p className="text-xs uppercase tracking-[0.35em] text-gold">The Story So Far</p>
         <SerifHeading className="mt-3 text-5xl md:text-6xl">Timeline</SerifHeading>
         <GoldDivider className="mx-auto my-8 w-24" />
-        <TimelineFiltersBar filters={filters} options={filterOptions} onChange={setFilters} />
+        {entries.length > 0 && <TimelineFiltersBar filters={filters} options={filterOptions} onChange={setFilters} />}
       </header>
 
       {filtered.length === 0 ? (
-        <p className="text-center text-mutedgray">No memories match these filters yet.</p>
+        <p className="text-center text-mutedgray">
+          {entries.length === 0 ? 'No memories yet.' : 'No memories match these filters.'}
+        </p>
       ) : (
         <div className="space-y-24">
-          {filtered.map((entry, index) => (
-            <TimelineEntry key={entry.memory.id} entry={entry} reversed={index % 2 === 1} />
+          {filtered.map((memory, index) => (
+            <TimelineEntry key={memory.id} memory={memory} reversed={index % 2 === 1} />
           ))}
         </div>
       )}

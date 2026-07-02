@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom'
-import type { TimelineEntry as TimelineEntryData } from '../../hooks/useTimelineData'
+import type { Memory } from '../../domain/models'
+import { memoryRoute } from '../../domain/models'
 import { useMediaAssets } from '../../hooks/useMediaAssets'
-import { formatMemoryDate } from '../../utils/date'
-import { slotRoute } from '../../domain/models'
+import { formatDate } from '../../utils/date'
 
-export function TimelineEntry({ entry, reversed }: { entry: TimelineEntryData; reversed: boolean }) {
-  const { items } = useMediaAssets(entry.memory.id)
+export function TimelineEntry({ memory, reversed }: { memory: Memory; reversed: boolean }) {
+  const { items } = useMediaAssets(memory.id)
   const cover = items.find((item) => item.asset.kind === 'image')
 
   return (
     <Link
-      to={slotRoute(entry.shelf.slug, entry.slot.code)}
+      to={memoryRoute(memory.slug)}
       className={`group grid animate-fade-up grid-cols-1 items-center gap-8 md:grid-cols-2 ${
         reversed ? 'md:[&>*:first-child]:order-2' : ''
       }`}
@@ -19,7 +19,7 @@ export function TimelineEntry({ entry, reversed }: { entry: TimelineEntryData; r
         {cover ? (
           <img
             src={cover.url}
-            alt={entry.memory.title}
+            alt={memory.title}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
@@ -28,22 +28,10 @@ export function TimelineEntry({ entry, reversed }: { entry: TimelineEntryData; r
         )}
       </div>
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.25em] text-mutedgray">
-          {formatMemoryDate(entry.memory.date, entry.memory.dateRange)} · {entry.shelf.name}
-        </p>
+        <p className="text-xs uppercase tracking-[0.25em] text-mutedgray">{formatDate(memory.date)}</p>
         <h3 className="font-display text-3xl text-warmwhite transition-colors group-hover:text-gold-soft">
-          {entry.memory.title}
+          {memory.title}
         </h3>
-        {entry.memory.subtitle && <p className="text-mutedgray italic">{entry.memory.subtitle}</p>}
-        {entry.memory.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {entry.memory.tags.map((tag) => (
-              <span key={tag} className="text-[10px] uppercase tracking-wide text-mutedgray/70">
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
     </Link>
   )

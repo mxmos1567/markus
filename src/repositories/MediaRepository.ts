@@ -1,6 +1,8 @@
-import type { IStorageProvider } from '../storage/IStorageProvider'
 import type { MediaAsset, MediaKind } from '../domain/models'
+import { getDb } from '../db/database'
 import { createId, nowIso } from '../utils/id'
+
+const BLOB_URL_CACHE = new Map<string, string>()
 
 function kindFromMime(mime: string): MediaKind {
   if (mime.startsWith('image/')) return 'image'
@@ -26,17 +28,14 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
 }
 
 export class MediaRepository {
-  private readonly storage: IStorageProvider
-
-  constructor(storage: IStorageProvider) {
-    this.storage = storage
-  }
-
-  list(memoryId: string): Promise<MediaAsset[]> {
-    return this.storage.listMedia(memoryId)
+  async list(memoryId: string): Promise<MediaAsset[]> {
+    const db = await getDb()
+    const assets = await db.getAllFromIndex('media', 'memoryId', memoryId)
+    return assets.sort((a, b) => a.order - b.order)
   }
 
   async upload(memoryId: string, file: File, order: number): Promise<MediaAsset> {
+    const db = await getDb()
     const dimensions = await readImageDimensions(file)
     const asset: MediaAsset = {
       id: createId(),
@@ -51,14 +50,32 @@ export class MediaRepository {
       order,
       createdAt: nowIso(),
     }
-    return this.storage.saveMediaAsset(asset, file)
+    await db.put('mediaBlobs', file, asset.blobKey)
+    await db.put('media', asset)
+    return asset
   }
 
-  getUrl(asset: MediaAsset): Promise<string> {
-    return this.storage.getMediaUrl(asset)
+  async getUrl(asset: MediaAsset): Promise<string> {
+    const cached = BLOB_URL_CACHE.get(asset.blobKey)
+    if (cached) return cached
+    const db = await getDb()
+    const blob = await db.get('mediaBlobs', asset.blobKey)
+    if (!blob) return ''
+    const url = URL.createObjectURL(blob)
+    BLOB_URL_CACHE.set(asset.blobKey, url)
+    return url
   }
 
-  delete(id: string): Promise<void> {
-    return this.storage.deleteMediaAsset(id)
+  async delete(id: string): Promise<void> {
+    const db = await getDb()
+    const asset = await db.get('media', id)
+    if (!asset) return
+    const cached = BLOB_URL_CACHE.get(asset.blobKey)
+    if (cached) {
+      URL.revokeObjectURL(cached)
+      BLOB_URL_CACHE.delete(asset.blobKey)
+    }
+    await db.delete('mediaBlobs', asset.blobKey)
+    await db.delete('media', id)
   }
 }

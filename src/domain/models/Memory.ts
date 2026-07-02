@@ -1,28 +1,15 @@
-import type { DateRange, Entity, GeoLocation, Visibility } from './common'
+import type { Entity } from './common'
 
 export interface Memory extends Entity {
+  /** Slug used in the memory's permanent public URL and QR code: /memory/:slug */
+  slug: string
   title: string
-  subtitle: string
-  description: string
   date: string
-  dateRange: DateRange | null
-  location: GeoLocation | null
-  tags: string[]
-  notes: string
-  favorite: boolean
-  visibility: Visibility
-  slotId: string | null
+  description: string
 }
 
 export interface CreateMemoryInput {
   title: string
-  subtitle: string
-  description: string
   date: string
-  dateRange: DateRange | null
-  location: GeoLocation | null
-  tags: string[]
-  notes: string
-  favorite: boolean
-  visibility: Visibility
+  description: string
 }

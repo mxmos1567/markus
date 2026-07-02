@@ -1,40 +1,50 @@
-import type { PublicUser } from '../domain/models'
-import type { IStorageProvider } from '../storage/IStorageProvider'
+import { getDb } from '../db/database'
+import { PasswordHasher } from './PasswordHasher'
 
 const SESSION_KEY = 'memory-shelf:session'
+const ACCOUNT_SETTING_KEY = 'admin-account'
+const DEFAULT_USERNAME = 'admin'
+const DEFAULT_PASSWORD = 'change-me-now'
 
 export interface Session {
-  userId: string
+  displayName: string
+}
+
+interface AdminAccount {
   username: string
   displayName: string
-  role: PublicUser['role']
+  passwordHash: string
+  passwordSalt: string
 }
 
 /**
- * Authentication is delegated to the active storage provider's
- * `verifyCredentials`, so each backend decides how credentials are
- * checked — locally for IndexedDB, server-side via `/auth/login` for a
- * REST backend — without this service ever seeing a password hash it
- * shouldn't. Only the resulting session is cached here, in
- * localStorage.
+ * Memory Shelf has exactly one admin account — there is no multi-user
+ * or role system. The account is a single row in the settings store,
+ * not a full "users" table.
  */
 export class AuthService {
-  private readonly storage: IStorageProvider
-
-  constructor(storage: IStorageProvider) {
-    this.storage = storage
+  async ensureAccountExists(): Promise<void> {
+    const db = await getDb()
+    const existing = await db.get('settings', ACCOUNT_SETTING_KEY)
+    if (existing) return
+    const { hash, salt } = await PasswordHasher.hash(DEFAULT_PASSWORD)
+    const account: AdminAccount = {
+      username: DEFAULT_USERNAME,
+      displayName: 'Administrator',
+      passwordHash: hash,
+      passwordSalt: salt,
+    }
+    await db.put('settings', account, ACCOUNT_SETTING_KEY)
   }
 
   async login(username: string, password: string): Promise<Session> {
-    const user = await this.storage.verifyCredentials(username, password)
-    if (!user) throw new Error('Invalid username or password')
+    const db = await getDb()
+    const account = (await db.get('settings', ACCOUNT_SETTING_KEY)) as AdminAccount | undefined
+    if (!account || account.username !== username) throw new Error('Invalid username or password')
+    const valid = await PasswordHasher.verify(password, account.passwordHash, account.passwordSalt)
+    if (!valid) throw new Error('Invalid username or password')
 
-    const session: Session = {
-      userId: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role,
-    }
+    const session: Session = { displayName: account.displayName }
     localStorage.setItem(SESSION_KEY, JSON.stringify(session))
     return session
   }
@@ -51,5 +61,13 @@ export class AuthService {
     } catch {
       return null
     }
+  }
+
+  async changePassword(newPassword: string): Promise<void> {
+    const db = await getDb()
+    const account = (await db.get('settings', ACCOUNT_SETTING_KEY)) as AdminAccount | undefined
+    if (!account) throw new Error('No admin account found')
+    const { hash, salt } = await PasswordHasher.hash(newPassword)
+    await db.put('settings', { ...account, passwordHash: hash, passwordSalt: salt }, ACCOUNT_SETTING_KEY)
   }
 }
