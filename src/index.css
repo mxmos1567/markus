@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@import '@fontsource/instrument-serif/400.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+
+/*
+ * Cinematic Archive palette: near-black backgrounds with a hint of blue
+ * and violet, warm gold as the single "precious object" accent, soft
+ * white and muted gray for text. Everything else in the app should be
+ * built from these tokens rather than ad-hoc colors.
+ */
+@theme {
+  --color-void: #0a0a12;
+  --color-void-deep: #05050a;
+  --color-midnight: #10101c;
+  --color-violet-deep: #1a1428;
+  --color-violet: #2a1f42;
+
+  --color-gold: #c9a24b;
+  --color-gold-soft: #e4c988;
+  --color-warmwhite: #f4f1ea;
+  --color-mutedgray: #9a97a3;
+  --color-line: #2b2836;
+
+  --font-serif-display: 'Instrument Serif', 'Georgia', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  --animate-fade-in: fade-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-up: fade-up 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 2.4s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  background: var(--color-void-deep);
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(120% 60% at 50% 0%, var(--color-violet-deep) 0%, var(--color-void) 45%, var(--color-void-deep) 100%);
+  color: var(--color-warmwhite);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-gold) 35%, transparent);
+  color: var(--color-warmwhite);
+}
+
+.font-display {
+  font-family: var(--font-serif-display);
+  font-weight: 400;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Subtle, deliberate glass — never a full frosted panel, just enough to
+   separate content from the backdrop. */
+.glass-panel {
+  background: color-mix(in srgb, var(--color-midnight) 55%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--color-gold) 12%, var(--color-line));
+}
+
+.gold-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-gold) 60%, transparent), transparent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold);
+}
