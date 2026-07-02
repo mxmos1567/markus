@@ -1,10 +1,12 @@
-import type { Memory, MediaAsset } from '../domain/models'
+import type { Memory, MediaAsset, Shelf, ShelfSlot } from '../domain/models'
 import { getDb } from '../db/database'
 import { blobToDataUrl, dataUrlToBlob } from '../utils/blob'
 
 export interface BackupPayload {
   version: number
   exportedAt: string
+  shelves: Shelf[]
+  slots: ShelfSlot[]
   memories: Memory[]
   media: MediaAsset[]
   /** Base64 data URLs keyed by MediaAsset.blobKey, so backups are self-contained. */
@@ -14,10 +16,14 @@ export interface BackupPayload {
 
 export type ImportMode = 'merge' | 'replace'
 
+const STORES = ['shelves', 'slots', 'memories', 'media', 'mediaBlobs', 'settings'] as const
+
 export class BackupService {
   async exportToFile(): Promise<void> {
     const db = await getDb()
-    const [memories, media, settingsKeys] = await Promise.all([
+    const [shelves, slots, memories, media, settingsKeys] = await Promise.all([
+      db.getAll('shelves'),
+      db.getAll('slots'),
       db.getAll('memories'),
       db.getAll('media'),
       db.getAllKeys('settings'),
@@ -33,8 +39,10 @@ export class BackupService {
     }
 
     const payload: BackupPayload = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
+      shelves,
+      slots,
       memories,
       media,
       mediaBlobs,
@@ -59,9 +67,7 @@ export class BackupService {
 
     const db = await getDb()
     if (mode === 'replace') {
-      await Promise.all(
-        (['memories', 'media', 'mediaBlobs', 'settings'] as const).map((store) => db.clear(store)),
-      )
+      await Promise.all(STORES.map((store) => db.clear(store)))
     }
 
     for (const [blobKey, dataUrl] of Object.entries(payload.mediaBlobs ?? {})) {
@@ -69,8 +75,10 @@ export class BackupService {
       await db.put('mediaBlobs', blob, blobKey)
     }
 
-    const tx = db.transaction(['memories', 'media', 'settings'], 'readwrite')
+    const tx = db.transaction(['shelves', 'slots', 'memories', 'media', 'settings'], 'readwrite')
     await Promise.all([
+      ...(payload.shelves ?? []).map((shelf) => tx.objectStore('shelves').put(shelf)),
+      ...(payload.slots ?? []).map((slot) => tx.objectStore('slots').put(slot)),
       ...payload.memories.map((memory) => tx.objectStore('memories').put(memory)),
       ...payload.media.map((asset) => tx.objectStore('media').put(asset)),
       ...Object.entries(payload.settings ?? {}).map(([key, value]) => tx.objectStore('settings').put(value, key)),

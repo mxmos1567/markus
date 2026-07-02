@@ -2,10 +2,14 @@
 
 A simple, practical digital museum for personal memories.
 
-You write a memory (title, date, story, photos/video/documents). The
-app gives it a permanent link and a QR code. You print the QR code and
-stick it into your physical shelf. Scanning it opens exactly that
-memory — no browsing, no list, no feed. The only place multiple
+You create one or more shelves, each with a grid of rows × columns. The
+app generates every slot automatically (A1, A2, A3…), and each slot has
+a permanent public URL and QR code. You write a memory and either
+assign it to a slot manually or let the app pick a random free one. You
+print the slot's QR code and stick it onto your physical shelf.
+Scanning it opens whichever memory is currently assigned there — no
+browsing, no list, no feed. Moving a memory to a different slot never
+changes the QR code itself, only what it opens. The only place multiple
 memories can be discovered is `/timeline`.
 
 Cinematic Archive design: near-black/violet backgrounds, warm gold
@@ -14,8 +18,8 @@ accents, Instrument Serif headings, slow deliberate motion.
 ## Stack
 
 - React + TypeScript + Vite, PWA (offline cache via Workbox)
-- React Router: public routes `/`, `/memory/:slug`, `/timeline`; admin
-  routes under `/admin/*`, code-split and lazy loaded so public
+- React Router: public routes `/`, `/slot/:shelf/:slot`, `/timeline`;
+  admin routes under `/admin/*`, code-split and lazy loaded so public
   visitors never download the admin bundle
 - Tailwind CSS v4, `@tailwindcss/typography` for the markdown story
 - Everything lives in the browser's IndexedDB (via `idb`) — no backend,
@@ -26,26 +30,28 @@ accents, Instrument Serif headings, slow deliberate motion.
 ## Architecture
 
 ```
-src/domain/models     Memory, MediaAsset — plain types
+src/domain/models     Shelf, ShelfSlot, Memory, MediaAsset — plain types
 src/db/database.ts    The only file that talks to IndexedDB directly
-src/repositories       MemoryRepository (slug generation, CRUD),
-                       MediaRepository (blob storage, uploads)
+src/repositories       ShelfRepository (slug + slot-grid generation),
+                       SlotRepository (manual/random assignment),
+                       MemoryRepository, MediaRepository
 src/services           AuthService (single admin account), QrCodeService,
                         BackupService (JSON export/import)
 src/context            React wiring: ServiceContainer + AuthContext
-src/pages/public        HomePage, MemoryPage (/memory/:slug), TimelinePage
-src/pages/admin         Dashboard, Memories, QR Codes, Import/Export, Settings
+src/pages/public        HomePage, SlotPage (/slot/:shelf/:slot), TimelinePage
+src/pages/admin         Dashboard, Shelves, Memories, QR Codes, Import/Export, Settings
 ```
 
 There's deliberately no storage-provider abstraction or separate
-backend right now — one repository, one database module, one admin
-account. If a real multi-device/multi-user backend is ever needed,
-`src/repositories/*` is the seam to introduce one behind, without
-touching pages.
+backend right now — repositories talk directly to one database module,
+and there's one admin account. If a real multi-device/multi-user
+backend is ever needed, `src/repositories/*` is the seam to introduce
+one behind, without touching pages.
 
-Each memory gets a unique `slug` (from its title) the moment it's
-created — that's what the QR code encodes, and it never changes even
-if the title or story is edited later.
+A shelf slot's QR code is permanent from the moment the shelf is
+created — it always resolves to `/slot/:shelfSlug/:code`. A memory only
+gets a public URL once it's placed on a slot; an empty slot shows a
+dedicated "waiting for its memory" page instead of a 404.
 
 ## Getting started
 
@@ -71,6 +77,6 @@ if you change the icon design.
 ## Backing up your data
 
 Since everything lives in the browser's IndexedDB, use **Admin →
-Import/Export** regularly to download a full JSON backup (memories,
-photos/videos/documents included as embedded data) — this is your only
-copy outside the browser.
+Import/Export** regularly to download a full JSON backup (shelves,
+slots, memories, photos/videos/documents included as embedded data) —
+this is your only copy outside the browser.

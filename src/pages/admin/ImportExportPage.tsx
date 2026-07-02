@@ -43,8 +43,8 @@ export function ImportExportPage() {
       <div className="glass-panel space-y-4 rounded-sm p-6">
         <h2 className="font-display text-xl">Export a Backup</h2>
         <p className="text-sm text-mutedgray">
-          Downloads every memory and media file as a single self-contained JSON file — safe to store for decades,
-          independent of this app.
+          Downloads every shelf, slot, memory and media file as a single self-contained JSON file — safe to store
+          for decades, independent of this app.
         </p>
         <Button onClick={onExport} disabled={busy}>
           Export Full Backup

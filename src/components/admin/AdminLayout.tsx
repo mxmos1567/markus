@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
+  { to: '/admin/shelves', label: 'Shelves' },
   { to: '/admin/memories', label: 'Memories' },
   { to: '/admin/qr-codes', label: 'QR Codes' },
   { to: '/admin/import-export', label: 'Import / Export' },

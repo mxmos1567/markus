@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import type { ShelfSlot } from '../../domain/models'
 import { useServices } from '../../context/ServiceContext'
 import { SerifHeading } from '../../components/common/SerifHeading'
 import { Button } from '../../components/common/Button'
 import { GoldDivider } from '../../components/common/GoldDivider'
 import { MemoryMediaManager } from '../../components/admin/MemoryMediaManager'
-import { QrCodeService } from '../../services/QrCodeService'
+import { SlotAssignment } from '../../components/admin/SlotAssignment'
 
 const EMPTY_STATE = {
   title: '',
@@ -17,32 +18,23 @@ export function MemoryFormPage() {
   const { id } = useParams<{ id: string }>()
   const isNew = id === 'new'
   const navigate = useNavigate()
-  const { memories } = useServices()
+  const { memories, slots } = useServices()
 
   const [memoryId, setMemoryId] = useState<string | null>(isNew ? null : id ?? null)
-  const [slug, setSlug] = useState<string | null>(null)
+  const [currentSlot, setCurrentSlot] = useState<ShelfSlot | null>(null)
   const [form, setForm] = useState(EMPTY_STATE)
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
-  const [qrUrl, setQrUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (isNew || !id) return
-    memories.get(id).then((memory) => {
+    memories.get(id).then(async (memory) => {
       if (!memory) return
       setForm({ title: memory.title, date: memory.date.slice(0, 10), description: memory.description })
-      setSlug(memory.slug)
+      if (memory.slotId) setCurrentSlot(await slots.get(memory.slotId))
       setLoading(false)
     })
-  }, [id, isNew, memories])
-
-  useEffect(() => {
-    if (!slug) {
-      setQrUrl(null)
-      return
-    }
-    QrCodeService.toDataUrl(slug).then(setQrUrl)
-  }, [slug])
+  }, [id, isNew, memories, slots])
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -54,7 +46,6 @@ export function MemoryFormPage() {
       } else {
         const created = await memories.create(form)
         setMemoryId(created.id)
-        setSlug(created.slug)
         navigate(`/admin/memories/${created.id}`, { replace: true })
       }
     } finally {
@@ -64,17 +55,23 @@ export function MemoryFormPage() {
 
   async function onDelete() {
     if (!memoryId) return
-    if (!confirm('Delete this memory and its QR code link? This cannot be undone.')) return
+    if (!confirm('Delete this memory? Its shelf slot will become free again. This cannot be undone.')) return
     await memories.delete(memoryId)
     navigate('/admin/memories')
   }
 
-  function downloadQr() {
-    if (!qrUrl || !slug) return
-    const link = document.createElement('a')
-    link.href = qrUrl
-    link.download = `${slug}.png`
-    link.click()
+  async function onAssign(slot: ShelfSlot) {
+    if (!memoryId) return
+    await slots.assignMemory(slot.id, memoryId, currentSlot?.id)
+    await memories.setSlot(memoryId, slot.id)
+    setCurrentSlot(slot)
+  }
+
+  async function onRelease() {
+    if (!memoryId || !currentSlot) return
+    await slots.release(currentSlot.id)
+    await memories.setSlot(memoryId, null)
+    setCurrentSlot(null)
   }
 
   if (loading) return <p className="text-mutedgray">Loading…</p>
@@ -140,31 +137,16 @@ export function MemoryFormPage() {
           <div>
             <GoldDivider className="mb-6" />
             <SerifHeading as="h2" className="mb-4 text-2xl">
-              Public Link & QR Code
+              Shelf Placement
             </SerifHeading>
-            <div className="glass-panel flex flex-wrap items-center gap-6 rounded-sm p-6">
-              {qrUrl && <img src={qrUrl} alt="QR code" className="w-32 bg-white p-1" />}
-              <div className="space-y-2 text-sm">
-                <p className="text-mutedgray">
-                  <a
-                    href={`/memory/${slug}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-gold-soft hover:underline"
-                  >
-                    {typeof window !== 'undefined' ? window.location.origin : ''}/memory/{slug}
-                  </a>
-                </p>
-                <Button variant="ghost" onClick={downloadQr}>
-                  Download QR Code
-                </Button>
-              </div>
-            </div>
+            <SlotAssignment currentSlot={currentSlot} onAssign={onAssign} onRelease={onRelease} />
           </div>
         </>
       )}
 
-      {!memoryId && <p className="text-sm text-mutedgray">Save the memory first to upload media and get its QR code.</p>}
+      {!memoryId && (
+        <p className="text-sm text-mutedgray">Save the memory first to upload media and place it on a shelf.</p>
+      )}
     </div>
   )
 }

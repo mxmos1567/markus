@@ -1,16 +1,16 @@
 import QRCode from 'qrcode'
-import { memoryRoute } from '../domain/models'
+import { slotRoute } from '../domain/models'
 
 export const QrCodeService = {
   /** Absolute URL a printed QR code should resolve to. */
-  urlFor(slug: string): string {
-    const path = memoryRoute(slug)
+  urlFor(shelfSlug: string, code: string): string {
+    const path = slotRoute(shelfSlug, code)
     if (typeof window === 'undefined') return path
     return `${window.location.origin}${path}`
   },
 
-  async toDataUrl(slug: string): Promise<string> {
-    return QRCode.toDataURL(this.urlFor(slug), {
+  async toDataUrl(shelfSlug: string, code: string): Promise<string> {
+    return QRCode.toDataURL(this.urlFor(shelfSlug, code), {
       margin: 2,
       width: 512,
       color: { dark: '#0a0a14', light: '#ffffff' },

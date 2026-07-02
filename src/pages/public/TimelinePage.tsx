@@ -31,8 +31,8 @@ export function TimelinePage() {
         </p>
       ) : (
         <div className="space-y-24">
-          {filtered.map((memory, index) => (
-            <TimelineEntry key={memory.id} memory={memory} reversed={index % 2 === 1} />
+          {filtered.map((entry, index) => (
+            <TimelineEntry key={entry.memory.id} entry={entry} reversed={index % 2 === 1} />
           ))}
         </div>
       )}

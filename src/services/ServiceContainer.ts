@@ -1,4 +1,6 @@
 import { getDb } from '../db/database'
+import { ShelfRepository } from '../repositories/ShelfRepository'
+import { SlotRepository } from '../repositories/SlotRepository'
 import { MemoryRepository } from '../repositories/MemoryRepository'
 import { MediaRepository } from '../repositories/MediaRepository'
 import { AuthService } from './AuthService'
@@ -10,6 +12,8 @@ import { BackupService } from './BackupService'
  * IndexedDB or localStorage themselves.
  */
 export class ServiceContainer {
+  readonly shelves = new ShelfRepository()
+  readonly slots = new SlotRepository()
   readonly memories = new MemoryRepository()
   readonly media = new MediaRepository()
   readonly auth = new AuthService()

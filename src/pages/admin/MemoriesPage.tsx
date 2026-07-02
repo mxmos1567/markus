@@ -42,7 +42,7 @@ export function MemoriesPage() {
           >
             <p className="font-display text-xl">{memory.title}</p>
             <p className="mt-1 text-xs uppercase tracking-wide text-mutedgray">{formatDate(memory.date)}</p>
-            <p className="mt-3 text-xs text-mutedgray/70">/memory/{memory.slug}</p>
+            {!memory.slotId && <p className="mt-3 text-xs uppercase text-mutedgray/60">Not on a shelf yet</p>}
           </Link>
         ))}
         {filtered.length === 0 && <p className="text-mutedgray">No memories found.</p>}
