@@ -1,27 +1,50 @@
-import { useEffect, useState } from 'react'
-import type { Shelf, ShelfSlot } from '../../domain/models'
+import { useEffect, useMemo, useState } from 'react'
+import type { Memory, Shelf, ShelfSlot } from '../../domain/models'
 import { useServices } from '../../context/ServiceContext'
 import { QrCodeService } from '../../services/QrCodeService'
+import { LABEL_TEMPLATES, getLabelTemplate } from '../../domain/labelTemplates'
+import { paginateLabels } from '../../domain/labelLayout'
 import { SerifHeading } from '../../components/common/SerifHeading'
+import { GoldDivider } from '../../components/common/GoldDivider'
 import { Button } from '../../components/common/Button'
+import { LabelStartPicker } from '../../components/admin/labels/LabelStartPicker'
+import { LabelSheetView, type LabelItem } from '../../components/admin/labels/LabelSheetView'
+import { LabelPrintArea } from '../../components/admin/labels/LabelPrintArea'
+
+type ContentMode = 'qr-only' | 'qr-code' | 'qr-title'
 
 export function QrCodesPage() {
-  const { shelves, slots } = useServices()
+  const { shelves, slots, memories } = useServices()
   const [shelfList, setShelfList] = useState<Shelf[]>([])
   const [shelfId, setShelfId] = useState('')
   const [slotList, setSlotList] = useState<ShelfSlot[]>([])
   const [images, setImages] = useState<Record<string, string>>({})
+  const [memoryTitles, setMemoryTitles] = useState<Record<string, string>>({})
+
+  const [templateId, setTemplateId] = useState(LABEL_TEMPLATES[0].id)
+  const [contentMode, setContentMode] = useState<ContentMode>('qr-only')
+  const [startIndex, setStartIndex] = useState(0)
 
   useEffect(() => {
     shelves.list().then((list) => {
       setShelfList(list)
       if (list.length > 0) setShelfId(list[0].id)
     })
-  }, [shelves])
+    memories.list().then((all: Memory[]) => {
+      const map: Record<string, string> = {}
+      all.forEach((memory) => {
+        map[memory.id] = memory.title
+      })
+      setMemoryTitles(map)
+    })
+  }, [shelves, memories])
 
   useEffect(() => {
     if (!shelfId) return
-    slots.list(shelfId).then((list) => setSlotList(list.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))))
+    slots
+      .list(shelfId)
+      .then((list) => setSlotList(list.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))))
+    setStartIndex(0)
   }, [shelfId, slots])
 
   const shelf = shelfList.find((s) => s.id === shelfId)
@@ -50,6 +73,21 @@ export function QrCodesPage() {
     link.click()
   }
 
+  const template = getLabelTemplate(templateId)
+
+  const labelItems: LabelItem[] = useMemo(() => {
+    return slotList
+      .filter((slot) => images[slot.id])
+      .map((slot) => {
+        const memoryTitle = slot.memoryId ? memoryTitles[slot.memoryId] : undefined
+        const text =
+          contentMode === 'qr-code' ? slot.code : contentMode === 'qr-title' ? memoryTitle ?? slot.code : undefined
+        return { qrDataUrl: images[slot.id], text }
+      })
+  }, [slotList, images, memoryTitles, contentMode])
+
+  const sheets = useMemo(() => paginateLabels(template, startIndex, labelItems), [template, startIndex, labelItems])
+
   if (shelfList.length === 0) {
     return (
       <div className="space-y-6">
@@ -61,17 +99,12 @@ export function QrCodesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between print:hidden">
-        <SerifHeading className="text-3xl">QR Codes</SerifHeading>
-        <Button variant="ghost" onClick={() => window.print()}>
-          Print This Shelf
-        </Button>
-      </div>
+      <SerifHeading className="text-3xl">QR Codes</SerifHeading>
 
       <select
         value={shelfId}
         onChange={(event) => setShelfId(event.target.value)}
-        className="rounded-sm border border-line bg-transparent px-3 py-2 text-sm focus:border-gold focus:outline-none print:hidden"
+        className="rounded-sm border border-line bg-transparent px-3 py-2 text-sm focus:border-gold focus:outline-none"
       >
         {shelfList.map((s) => (
           <option key={s.id} value={s.id}>
@@ -94,14 +127,91 @@ export function QrCodesPage() {
             )}
             <p className="font-display text-lg">{slot.code}</p>
             <p className="mb-2 text-[10px] uppercase text-mutedgray">{slot.memoryId ? 'occupied' : 'free'}</p>
-            <button
-              onClick={() => downloadOne(slot)}
-              className="text-xs text-mutedgray hover:text-gold-soft print:hidden"
-            >
+            <button onClick={() => downloadOne(slot)} className="text-xs text-mutedgray hover:text-gold-soft">
               Download
             </button>
           </div>
         ))}
+      </div>
+
+      <GoldDivider />
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <SerifHeading as="h2" className="text-2xl">
+            Print as Label Sheet
+          </SerifHeading>
+          <Button variant="ghost" onClick={() => window.print()}>
+            Print
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-6">
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-wide text-mutedgray">Label Template</p>
+            <select
+              value={templateId}
+              onChange={(event) => setTemplateId(event.target.value)}
+              className="rounded-sm border border-line bg-transparent px-3 py-2 text-sm focus:border-gold focus:outline-none"
+            >
+              {LABEL_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-wide text-mutedgray">Print Content</p>
+            <div className="flex gap-4 text-sm text-mutedgray">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={contentMode === 'qr-only'}
+                  onChange={() => setContentMode('qr-only')}
+                />
+                QR code only
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={contentMode === 'qr-code'}
+                  onChange={() => setContentMode('qr-code')}
+                />
+                QR + slot code
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={contentMode === 'qr-title'}
+                  onChange={() => setContentMode('qr-title')}
+                />
+                QR + memory title
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm text-mutedgray">
+            Reusing a partially used sheet? Click the first free position below — everything before it stays empty.
+          </p>
+          <LabelStartPicker template={template} startIndex={startIndex} onPick={setStartIndex} />
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm text-mutedgray">
+            Preview ({sheets.length} sheet{sheets.length === 1 ? '' : 's'})
+          </p>
+          <div className="flex flex-wrap gap-6 overflow-x-auto">
+            <LabelPrintArea template={template}>
+              {sheets.map((sheet, index) => (
+                <LabelSheetView key={index} template={template} cells={sheet} scale={0.42} />
+              ))}
+            </LabelPrintArea>
+          </div>
+        </div>
       </div>
     </div>
   )

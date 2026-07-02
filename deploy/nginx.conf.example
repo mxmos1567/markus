@@ -1,0 +1,36 @@
+# Example nginx site config for hosting Memory Shelf on a Raspberry Pi
+# (or any local server) — no Cloudflare, no external backend required.
+#
+# 1. npm run build
+# 2. Copy the contents of dist/ to /var/www/memory-shelf on the Pi
+# 3. Point a local hostname (e.g. via mDNS/Avahi) at the Pi, such as
+#    erinnerungsregal.local, and set that as the QR Code Base URL in
+#    Admin -> Settings, e.g. http://erinnerungsregal.local
+# 4. Copy this file to /etc/nginx/sites-available/memory-shelf and
+#    symlink it into sites-enabled, then reload nginx.
+
+server {
+    listen 80;
+    server_name erinnerungsregal.local;
+
+    root /var/www/memory-shelf;
+    index index.html;
+
+    # This is a single-page app: any path that isn't a real file
+    # (e.g. /slot/travel-shelf/A1, /timeline, /admin/memories) must
+    # fall back to index.html so React Router can handle it.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Long-lived caching for hashed build assets; index.html and the
+    # service worker itself should always be revalidated.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+    }
+}

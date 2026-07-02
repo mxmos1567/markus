@@ -4,7 +4,7 @@ import type { Memory } from '../../domain/models'
 import { useServices } from '../../context/ServiceContext'
 import { SerifHeading } from '../../components/common/SerifHeading'
 import { Button } from '../../components/common/Button'
-import { formatDate } from '../../utils/date'
+import { formatApproximateDate } from '../../utils/date'
 
 export function MemoriesPage() {
   const { memories } = useServices()
@@ -41,7 +41,7 @@ export function MemoriesPage() {
             className="glass-panel rounded-sm p-5 transition-colors hover:border-gold/40"
           >
             <p className="font-display text-xl">{memory.title}</p>
-            <p className="mt-1 text-xs uppercase tracking-wide text-mutedgray">{formatDate(memory.date)}</p>
+            <p className="mt-1 text-xs uppercase tracking-wide text-mutedgray">{formatApproximateDate(memory.date)}</p>
             {!memory.slotId && <p className="mt-3 text-xs uppercase text-mutedgray/60">Not on a shelf yet</p>}
           </Link>
         ))}

@@ -2,7 +2,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Memory } from '../../domain/models'
 import { useMediaAssets } from '../../hooks/useMediaAssets'
-import { formatDate } from '../../utils/date'
+import { formatApproximateDate } from '../../utils/date'
 import { MediaGallery } from './MediaGallery'
 import { SerifHeading } from '../common/SerifHeading'
 import { GoldDivider } from '../common/GoldDivider'
@@ -22,7 +22,7 @@ export function MemoryView({ memory }: { memory: Memory }) {
 
       <header className="animate-fade-up space-y-3 text-center">
         <SerifHeading className="text-4xl md:text-6xl">{memory.title}</SerifHeading>
-        <p className="text-sm uppercase tracking-[0.2em] text-mutedgray/80">{formatDate(memory.date)}</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-mutedgray/80">{formatApproximateDate(memory.date)}</p>
       </header>
 
       <GoldDivider className="mx-auto my-10 w-24" />

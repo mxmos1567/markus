@@ -126,3 +126,49 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-gold);
 }
+
+/*
+ * Label sheet printing: the sheet(s) are always in the DOM (scaled
+ * down for the on-screen preview via --label-scale), so the preview
+ * and the print output are guaranteed to be the same markup. At print
+ * time everything else is hidden and the scale is reset to full size;
+ * the exact page size comes from a <style> tag injected per template
+ * (see LabelPrintArea), not hardcoded here, so new templates never
+ * need a CSS change.
+ */
+.label-sheet-frame {
+  overflow: hidden;
+}
+
+.label-sheet {
+  background: #ffffff;
+  color: #000000;
+  transform: scale(var(--label-scale, 1));
+  transform-origin: top left;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .label-print-area,
+  .label-print-area * {
+    visibility: visible;
+  }
+  .label-print-area {
+    position: absolute;
+    inset: 0;
+  }
+  .label-sheet-frame {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .label-sheet {
+    transform: none;
+    page-break-after: always;
+  }
+  .label-sheet:last-child {
+    page-break-after: auto;
+  }
+}

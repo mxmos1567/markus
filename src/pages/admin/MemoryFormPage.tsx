@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ShelfSlot } from '../../domain/models'
 import { useServices } from '../../context/ServiceContext'
+import { hasExactDay } from '../../utils/date'
 import { SerifHeading } from '../../components/common/SerifHeading'
 import { Button } from '../../components/common/Button'
 import { GoldDivider } from '../../components/common/GoldDivider'
@@ -11,6 +12,7 @@ import { SlotAssignment } from '../../components/admin/SlotAssignment'
 const EMPTY_STATE = {
   title: '',
   date: new Date().toISOString().slice(0, 10),
+  approximate: false,
   description: '',
 }
 
@@ -30,7 +32,12 @@ export function MemoryFormPage() {
     if (isNew || !id) return
     memories.get(id).then(async (memory) => {
       if (!memory) return
-      setForm({ title: memory.title, date: memory.date.slice(0, 10), description: memory.description })
+      setForm({
+        title: memory.title,
+        date: memory.date,
+        approximate: !hasExactDay(memory.date),
+        description: memory.description,
+      })
       if (memory.slotId) setCurrentSlot(await slots.get(memory.slotId))
       setLoading(false)
     })
@@ -40,11 +47,16 @@ export function MemoryFormPage() {
     event.preventDefault()
     setSaving(true)
     try {
+      const input = {
+        title: form.title,
+        date: form.approximate ? form.date.slice(0, 7) : form.date,
+        description: form.description,
+      }
       if (memoryId) {
         const existing = await memories.get(memoryId)
-        if (existing) await memories.update({ ...existing, ...form })
+        if (existing) await memories.update({ ...existing, ...input })
       } else {
-        const created = await memories.create(form)
+        const created = await memories.create(input)
         setMemoryId(created.id)
         navigate(`/admin/memories/${created.id}`, { replace: true })
       }
@@ -101,12 +113,20 @@ export function MemoryFormPage() {
         <div>
           <label className="mb-1 block text-xs uppercase tracking-wide text-mutedgray">Date</label>
           <input
-            type="date"
+            type={form.approximate ? 'month' : 'date'}
             required
-            value={form.date}
+            value={form.approximate ? form.date.slice(0, 7) : form.date}
             onChange={(event) => setForm({ ...form, date: event.target.value })}
             className="w-full max-w-xs rounded-sm border border-line bg-transparent px-3 py-2 focus:border-gold focus:outline-none"
           />
+          <label className="mt-2 flex items-center gap-2 text-xs text-mutedgray">
+            <input
+              type="checkbox"
+              checked={form.approximate}
+              onChange={(event) => setForm({ ...form, approximate: event.target.checked })}
+            />
+            I only know the month, not the exact day
+          </label>
         </div>
 
         <div>

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { TimelineEntry as TimelineEntryData } from '../../hooks/useTimelineData'
 import { useMediaAssets } from '../../hooks/useMediaAssets'
-import { formatDate } from '../../utils/date'
+import { formatApproximateDate } from '../../utils/date'
 import { slotRoute } from '../../domain/models'
 
 export function TimelineEntry({ entry, reversed }: { entry: TimelineEntryData; reversed: boolean }) {
@@ -29,7 +29,7 @@ export function TimelineEntry({ entry, reversed }: { entry: TimelineEntryData; r
       </div>
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.25em] text-mutedgray">
-          {formatDate(entry.memory.date)} · {entry.shelf.name}
+          {formatApproximateDate(entry.memory.date)} · {entry.shelf.name}
         </p>
         <h3 className="font-display text-3xl text-warmwhite transition-colors group-hover:text-gold-soft">
           {entry.memory.title}

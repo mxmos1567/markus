@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useServices } from '../../context/ServiceContext'
 import { SerifHeading } from '../../components/common/SerifHeading'
+import { ThisMonthWidget } from '../../components/admin/ThisMonthWidget'
 
 export function DashboardPage() {
   const { shelves, slots, memories } = useServices()
@@ -29,6 +30,8 @@ export function DashboardPage() {
           </div>
         ))}
       </div>
+
+      <ThisMonthWidget />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Link to="/admin/shelves" className="glass-panel rounded-sm p-5 transition-colors hover:border-gold/40">

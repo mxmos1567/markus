@@ -24,8 +24,9 @@ accents, Instrument Serif headings, slow deliberate motion.
 - Tailwind CSS v4, `@tailwindcss/typography` for the markdown story
 - Everything lives in the browser's IndexedDB (via `idb`) — no backend,
   fully usable offline
-- Static build, deployable as-is to Cloudflare Pages (see
-  `public/_redirects` for SPA routing)
+- Static build — no required backend of any kind. Deployable as-is to
+  Cloudflare Pages (`public/_redirects`) or hosted fully locally, e.g.
+  on a Raspberry Pi behind nginx (`deploy/nginx.conf.example`)
 
 ## Architecture
 
@@ -52,6 +53,29 @@ A shelf slot's QR code is permanent from the moment the shelf is
 created — it always resolves to `/slot/:shelfSlug/:code`. A memory only
 gets a public URL once it's placed on a slot; an empty slot shows a
 dedicated "waiting for its memory" page instead of a 404.
+
+QR codes encode **Admin → Settings → QR Code Base URL** + that path —
+defaults to the browser's current origin, but set it explicitly (e.g.
+`http://erinnerungsregal.local`) when hosting locally so codes still
+resolve correctly from any device on the network, regardless of which
+machine generated them.
+
+Once a memory has a slot, moving it to a different one requires an
+explicit "Move to a different slot" action and a confirmation — the
+normal flow is create → assign once → print → done.
+
+Memory dates can be exact or "I only know the month" (stored as
+`YYYY-MM` instead of `YYYY-MM-DD`); the dashboard's **This Month in
+Memories** widget matches on calendar month alone, regardless of year
+or day, since most memories won't have an exact day.
+
+**QR label sheet printing** (Admin → QR Codes → Print as Label Sheet):
+prints a shelf's slot QR codes onto Avery L4730REV-25 sheets (or future
+templates — see `src/domain/labelTemplates.ts`), with QR-only / QR+slot
+code / QR+title content options, and an interactive picker for reusing
+a partially-used physical sheet (click the first free position; earlier
+positions stay blank; overflow continues on additional full sheets
+automatically).
 
 ## Getting started
 
