@@ -60,6 +60,14 @@ defaults to the browser's current origin, but set it explicitly (e.g.
 resolve correctly from any device on the network, regardless of which
 machine generated them.
 
+Password hashing works over plain HTTP on a LAN IP (e.g.
+`http://192.168.x.x` on a Raspberry Pi), not just HTTPS/localhost.
+Browsers only expose `crypto.subtle` in "secure contexts" — HTTPS or
+`localhost` — so `PasswordHasher` (`src/services/PasswordHasher.ts`)
+detects when it's unavailable and falls back to the same PBKDF2-SHA256
+algorithm implemented in pure JS (`@noble/hashes`, audited,
+zero-dependency) instead. Login behavior is identical either way.
+
 Once a memory has a slot, moving it to a different one requires an
 explicit "Move to a different slot" action and a confirmation — the
 normal flow is create → assign once → print → done.

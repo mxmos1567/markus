@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MSM Neural — Projektnetzwerk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070B12;
+    --line:#1B2637;
+    --text:#DCE6F2;
+    --text-dim:#7C8CA3;
+    --copper:#C98A4B;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    touch-action:none;
+  }
+  canvas{display:block;position:fixed;inset:0;cursor:grab;touch-action:none}
+  canvas.dragging{cursor:grabbing}
+
+  header{
+    position:fixed;top:0;left:0;right:0;
+    padding:18px 22px 0;
+    pointer-events:none;z-index:10;
+    display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+  }
+  .brand h1{
+    font-family:'Chakra Petch',sans-serif;
+    font-size:clamp(1.15rem,2.6vw,1.6rem);
+    font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  }
+  .brand h1 span{color:var(--copper)}
+  .brand p{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.68rem;color:var(--text-dim);
+    margin-top:4px;letter-spacing:.06em;
+  }
+  .stats{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.66rem;color:var(--text-dim);
+    text-align:right;line-height:1.7;letter-spacing:.05em;white-space:nowrap;
+  }
+  .stats b{color:var(--copper);font-weight:500}
+
+  nav{
+    position:fixed;left:22px;bottom:20px;z-index:10;
+    display:flex;flex-wrap:wrap;gap:8px;max-width:calc(100% - 44px);
+    align-items:center;
+  }
+  .chip{
+    pointer-events:auto;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.66rem;letter-spacing:.05em;
+    padding:7px 11px;
+    background:rgba(13,20,32,.85);
+    border:1px solid var(--line);border-radius:2px;
+    color:var(--text-dim);cursor:pointer;
+    display:flex;align-items:center;gap:7px;
+    transition:border-color .2s,color .2s,opacity .2s;
+    backdrop-filter:blur(6px);
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--c)}
+  .chip .dot.dashed{background:none;border:1.5px dashed var(--c)}
+  .chip.active{color:var(--text);border-color:var(--c)}
+  .chip.muted{opacity:.35}
+  .chip:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+  .chip.util{border-style:dashed}
+
+  .chip-select,.search-input{
+    pointer-events:auto;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.66rem;letter-spacing:.04em;
+    padding:7px 10px;
+    background:rgba(13,20,32,.85);
+    border:1px solid var(--line);border-radius:2px;
+    color:var(--text-dim);
+    backdrop-filter:blur(6px);
+  }
+  .chip-select:focus-visible,.search-input:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+  .search-input{color:var(--text);width:128px}
+  .search-input::placeholder{color:var(--text-dim)}
+  .search-input:focus{outline:none;border-color:var(--copper)}
+
+  .hint{
+    position:fixed;right:22px;bottom:20px;z-index:9;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.62rem;color:var(--text-dim);letter-spacing:.05em;
+    text-align:right;line-height:1.8;
+  }
+
+  aside{
+    position:fixed;top:0;right:0;bottom:0;
+    width:min(380px,92vw);
+    background:linear-gradient(180deg,rgba(13,20,32,.97),rgba(9,13,21,.97));
+    border-left:1px solid var(--line);
+    z-index:20;transform:translateX(105%);
+    transition:transform .32s cubic-bezier(.22,.9,.3,1);
+    padding:26px 24px;overflow-y:auto;backdrop-filter:blur(10px);
+  }
+  aside.open{transform:translateX(0)}
+  aside .close{
+    position:absolute;top:16px;right:16px;
+    background:none;border:1px solid var(--line);
+    color:var(--text-dim);width:30px;height:30px;
+    border-radius:2px;cursor:pointer;font-size:.9rem;
+    font-family:'IBM Plex Mono',monospace;
+    transition:border-color .2s,color .2s;
+  }
+  aside .close:hover{border-color:var(--copper);color:var(--text)}
+  aside .close:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+  .cat-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--pc,var(--copper));
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  }
+  .cat-label::before{content:'';width:16px;height:1px;background:var(--pc,var(--copper))}
+  .cat-label .status{
+    color:var(--text-dim);border:1px dashed var(--text-dim);
+    padding:1px 6px;border-radius:2px;font-size:.58rem;
+  }
+  aside h2{
+    font-family:'Chakra Petch',sans-serif;
+    font-size:1.35rem;font-weight:600;
+    margin:10px 0 6px;line-height:1.25;
+  }
+  aside .subtitle{font-size:.82rem;font-style:italic;color:var(--text-dim);margin-bottom:12px;line-height:1.5}
+  aside .desc{font-size:.86rem;line-height:1.65;color:#B8C4D6;margin-bottom:14px}
+  .meta-line{
+    font-size:.78rem;color:var(--text-dim);margin-bottom:6px;
+    display:flex;gap:6px;flex-wrap:wrap;line-height:1.5;
+  }
+  .meta-line b{color:var(--text);font-weight:500}
+  .sec-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--text-dim);margin:20px 0 10px;
+  }
+  .tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tag{
+    font-family:'IBM Plex Mono',monospace;font-size:.64rem;
+    padding:4px 8px;border:1px solid var(--line);border-radius:2px;
+    color:var(--text-dim);
+  }
+  .action-row{display:flex;gap:8px;margin:18px 0 4px;flex-wrap:wrap}
+  .action-btn{
+    flex:1;min-width:130px;
+    font-family:'IBM Plex Mono',monospace;font-size:.66rem;letter-spacing:.03em;
+    padding:10px 12px;border-radius:2px;text-align:center;cursor:pointer;
+    border:1px solid var(--copper);color:var(--copper);background:rgba(201,138,75,.08);
+    transition:background .2s,opacity .2s;
+  }
+  .action-btn:hover:not(.disabled){background:rgba(201,138,75,.18)}
+  .action-btn.disabled{opacity:.35;cursor:not-allowed;border-color:var(--line);color:var(--text-dim);background:none}
+  .action-btn:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+  .ext-links{display:flex;flex-direction:column;gap:6px}
+  .ext-link{
+    font-size:.78rem;color:var(--copper);text-decoration:none;
+    border:1px solid var(--line);border-radius:2px;padding:8px 10px;display:block;
+    transition:border-color .2s;word-break:break-word;
+  }
+  .ext-link:hover{border-color:var(--copper)}
+  .links{display:flex;flex-direction:column;gap:6px}
+  .link-node{
+    font-size:.78rem;padding:8px 10px;
+    border:1px solid var(--line);border-radius:2px;
+    background:rgba(255,255,255,.02);
+    cursor:pointer;color:var(--text);
+    display:flex;align-items:center;gap:9px;
+    transition:border-color .2s;
+    text-align:left;font-family:inherit;width:100%;
+  }
+  .link-node:hover{border-color:var(--lc,var(--copper))}
+  .link-node:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+  .link-node .dot{width:6px;height:6px;border-radius:50%;background:var(--lc,var(--copper));flex-shrink:0}
+  .rel-tag{
+    font-family:'IBM Plex Mono',monospace;font-size:.54rem;letter-spacing:.04em;
+    text-transform:uppercase;color:var(--text-dim);
+    border:1px solid var(--line);border-radius:2px;padding:1px 5px;flex-shrink:0;
+  }
+
+  @media (max-width:640px){
+    .stats{display:none}
+    .hint{display:none}
+    nav{bottom:14px;left:14px;max-width:calc(100% - 28px)}
+    .chip{font-size:.6rem;padding:6px 9px}
+    .search-input{width:104px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    aside{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="net"></canvas>
+
+<header>
+  <div class="brand">
+    <h1>MSM <span>Neural</span></h1>
+    <p>Projektnetzwerk · Ideen &amp; Maschinen · Mitterdorf a. d. Raab</p>
+  </div>
+  <div class="stats" id="stats"></div>
+</header>
+
+<nav id="filters" aria-label="Kategoriefilter"></nav>
+<div class="hint">
+  Klicken = Details · Ziehen = Verschieben<br>
+  Doppelklick = Anpinnen · Scrollen = Zoom<br>
+  Fläche ziehen = Karte bewegen
+</div>
+
+<aside id="panel" aria-live="polite">
+  <button class="close" id="closeBtn" aria-label="Detailansicht schließen">✕</button>
+  <div class="cat-label">
+    <span id="pCat"></span>
+    <span class="status" id="pType" style="border-style:solid"></span>
+    <span class="status" id="pStatus" hidden></span>
+  </div>
+  <h2 id="pTitle"></h2>
+  <p class="subtitle" id="pSubtitle" hidden></p>
+  <p class="desc" id="pDesc"></p>
+
+  <div id="pMeta"></div>
+
+  <div class="sec-title">Technik &amp; Werkzeuge</div>
+  <div class="tags" id="pTags"></div>
+
+  <div class="action-row">
+    <button class="action-btn" id="btnIdea" type="button">Idee öffnen</button>
+    <button class="action-btn" id="btnMemory" type="button">Erinnerung öffnen</button>
+  </div>
+
+  <div id="pExtLinksSection">
+    <div class="sec-title">Links</div>
+    <div class="ext-links" id="pExtLinks"></div>
+  </div>
+
+  <div class="sec-title">Verbunden mit</div>
+  <div class="links" id="pLinks"></div>
+</aside>
+
+<script>
+/* =========================================================================
+   MSM NEURAL — zentrale Datenstruktur
+   -------------------------------------------------------------------------
+   Jeder Eintrag unten ist die EINZIGE Stelle, die künftig erweitert werden
+   muss. Nodes, Kanten, Panel-Inhalte, Filter und Suche entstehen automatisch
+   daraus — siehe buildGraph() weiter unten.
+
+   Felder pro Node:
+     id, title, category, type, status,
+     shortDescription, longDescription,
+     origin, parent, related, memories, ideas,
+     images, links, qrTarget, shelfCompartment, createdApprox, tags
+
+   - origin:  Freitext ("aus einem Gespräch") ODER die id eines anderen
+              Nodes ("mesh"). Löst es sich zu einer echten id auf, wird
+              automatisch eine "stammt aus"-Verbindung gezeichnet.
+     parent:  NUR setzen, wenn es wirklich ein Unterprojekt ist (id eines
+              anderen Nodes). Im Zweifel stattdessen `related` verwenden.
+     related: Array von Node-ids — verwandt, aber kein Unterprojekt.
+     memories:Array von Node-ids vom Typ 'erinnerung', die zu diesem
+              Projekt gehören (z. B. Fächer aus dem Erinnerungsregal).
+     ideas:   Array von Node-ids vom Typ 'idee', die aus diesem Projekt
+              entstanden sind.
+
+   type:   'projekt' | 'idee' | 'erinnerung' | 'objekt'
+   status: 'aktiv' | 'abgeschlossen' | 'idee' | 'verworfen'
+   ========================================================================= */
+
+const CATS = {
+  hub:      {name:'Zentrum',              color:'#EDE3D0'},
+  hw:       {name:'Hardware & Embedded',  color:'#E8A54B'},
+  sw:       {name:'Software',             color:'#4FC3E8'},
+  pyro:     {name:'Pyrotechnik',          color:'#F0654A'},
+  write:    {name:'Schreiben',            color:'#B48CF2'},
+  print:    {name:'3D-Druck',             color:'#7ED491'},
+  ki:       {name:'KI-Projekte',          color:'#E87BC0'},
+  idea:     {name:'Ideen & Visionen',     color:'#93A4BE'},
+  memory:   {name:'Erinnerungen',         color:'#C9A24B'},
+  machine:  {name:'Maschinen',            color:'#6C8CFF'},
+  workshop: {name:'Werkstatt',            color:'#A9A56B'}
+};
+
+const TYPE_LABELS = {
+  projekt:    'Projekt',
+  idee:       'Idee / Vision',
+  erinnerung: 'Erinnerung',
+  objekt:     'Objekt'
+};
+
+const STATUS_LABELS = {
+  aktiv:        'Aktiv',
+  abgeschlossen:'Abgeschlossen',
+  idee:         'Idee / Konzept',
+  verworfen:    'Verworfen'
+};
+
+const nodesData = [
+  {id:'msm', category:'hub', type:'projekt', status:'aktiv', size:30, title:'MSM Engineering',
+   shortDescription:'Das Zentrum von allem: die persönliche Marke, unter der Hardware, Software, Pyrotechnik, 3D-Druck und Texte entstehen.',
+   longDescription:'Das Zentrum von allem: die persönliche Marke, unter der Hardware, Software, Pyrotechnik, 3D-Druck und Texte entstehen. Komplett selbst beigebracht — vom Löten bis zur Clean Architecture.',
+   related:['zuend','suite','shelf','memoir','pyromax','boot','lager','msmbus','kiassist','ecosystem','pool','youtube','watch'],
+   memories:['erinnerung-erste-loetstation','erinnerung-erste-platine'],
+   tags:['Selbststudium','Maker','Elektronik','C#','Embedded']},
+
+  /* ================= Hardware & Embedded ================= */
+  {id:'zuend', category:'hw', type:'projekt', status:'aktiv', size:19, title:'Zündanlage V4',
+   shortDescription:'ESP32-basiertes pyrotechnisches Funk-Zündsystem mit AES-128-Verschlüsselung und WiFi-WebUI.',
+   longDescription:'ESP32-basiertes pyrotechnisches Funk-Zündsystem mit AES-128-Verschlüsselung, NRF24L01, Empfängern, Showplanung und WiFi-WebUI (ShowCreator). Modulare Platinen, Firmware bis v3.8.0 mit Refactor in ArmLogic, BootSequence und ShowControl. Bewusst ein Privatprojekt.',
+   origin:'mesh',
+   related:['pyromax','fwsim','crypto','gehaeuse','handbuch'],
+   qrTarget:'projects/zuendanlage-v4.html',
+   tags:['ESP32','AES-128','NRF24L01','KiCad','ShowCreator']},
+
+  {id:'kabelzuend', category:'hw', type:'idee', status:'idee', size:10, title:'Kabel-Zündanlage',
+   shortDescription:'Alternative Version der Zündanlage ohne Funk — kabelgebunden über RS485 oder CAN.',
+   longDescription:'Alternative Version der Zündanlage ohne Funk — kabelgebunden über RS485 oder CAN. Erweiterung des V4-Systems für Situationen, in denen Funk nicht infrage kommt.',
+   parent:'zuend',
+   related:['msmbus'],
+   tags:['RS485','CAN','Kabelgebunden']},
+
+  {id:'sim', category:'hw', type:'projekt', status:'aktiv', size:11, title:'Zündanlage PC-Simulator',
+   shortDescription:'Nativer Windows-Simulator für den ESP32-Sketch der Zündanlage.',
+   longDescription:'Nativer Windows-Simulator (SimulatorBridge.exe + SimulatorCore.dll) für den ESP32-Sketch der Zündanlage — inklusive Debugging von #pragma pack, Makro-Kollisionen und Session-Cookie-Parsing.',
+   parent:'zuend',
+   tags:['C++','Windows','ESP32-Portierung']},
+
+  {id:'mesh', category:'hw', type:'projekt', status:'abgeschlossen', size:10, title:'Mesh-Zündsystem',
+   shortDescription:'WiFi- und NRF24L01-Mesh-Zündanlage — der Vorläufer und Ideengeber der V4.',
+   longDescription:'WiFi- und NRF24L01-Mesh-Zündanlage mit DFPlayer Mini für Sound und GT-U7-GPS — der Vorläufer und Ideengeber der V4.',
+   related:['boot'],
+   tags:['Mesh','NRF24L01','DFPlayer','GPS']},
+
+  {id:'msmbus', category:'hw', type:'idee', status:'idee', size:14, title:'MSM Bus-System',
+   shortDescription:'Eigenes Busprotokoll für zukünftige Elektronikmodule.',
+   longDescription:'Eigenes Busprotokoll für zukünftige Elektronikmodule — samt universellem Hauptcontroller (Steuerplatine für Bus, Sensoren und Erweiterungen) und Controller Box als Gehäuse- und Elektronikkonzept. Soll in fast allen Elektronikprojekten zum Einsatz kommen.',
+   related:['ecosystem','gehaeuse','pt100','pool'],
+   tags:['Busprotokoll','Hauptcontroller','Controller Box','Modular']},
+
+  {id:'lager', category:'hw', type:'projekt', status:'aktiv', size:15, title:'Elektronik-Lagerverwaltung',
+   shortDescription:'Webbasierte Lagerverwaltung für elektronische Bauteile mit QR-Codes und Benutzerrollen.',
+   longDescription:'Webbasierte Lagerverwaltung für elektronische Bauteile mit QR-Codes, Lagerplätzen, Bestellungen und Kundenverwaltung — inklusive Diagnose-System (Admin- und Diagnoseseiten) sowie Benutzerverwaltung mit Rollen, Rechten und Login. Grundlage für viele spätere Elektronikprojekte und Kandidat für eine spätere Produktlinie.',
+   related:['shelf','sqlite','linuxsrv','produkt','digiwerk'],
+   tags:['Web','QR-Codes','Lagerplätze','Benutzerrollen','Diagnose']},
+
+  {id:'regal', category:'hw', type:'projekt', status:'aktiv', size:12, title:'Erinnerungsregal 7×7',
+   shortDescription:'Physisches 7×7-Regal, in dem jedes Fach über einen permanenten QR-Code mit einer Erinnerung verknüpft ist.',
+   longDescription:'Großes physisches 7×7-Regal, in dem jedes Fach über einen permanenten QR-Code mit einem Erinnerungsstück und seiner digitalen Geschichte verknüpft ist. Nutzt Ideen aus der Lagerverwaltung. Ein zusätzlicher QR-Code außen am Regal führt zur MSM-Neural-Gesamtübersicht, nicht zu einer einzelnen Erinnerung.',
+   related:['shelf','museum'],
+   tags:['Holzbau','QR-Codes','49 Fächer']},
+
+  {id:'pool', category:'machine', type:'projekt', status:'aktiv', size:15, title:'Poolsteuerung',
+   shortDescription:'ESP-System zur kompletten Überwachung und Steuerung des Pools.',
+   longDescription:'ESP-System zur kompletten Überwachung und Steuerung des Pools: Pumpen, Wasserwerte, Solarbeheizung, Lecküberwachung, Energie- und Stromzähler, Wasserstand und Durchfluss — zusammengeführt in einem zentralen Technikschrank (Pool-Schaltschrank).',
+   related:['pt100','halter','smarthome'],
+   tags:['ESP32','Solar','Sensorik','Schaltschrank','Durchfluss']},
+
+  {id:'boot', category:'machine', type:'projekt', status:'aktiv', size:16, title:'Futterboot',
+   shortDescription:'Eigenbau RC-Futterboot mit ESP32, FreeRTOS, GPS und Autopilot.',
+   longDescription:'Eigenbau RC-Futterboot mit ESP32: FreeRTOS-Multitasking, GPS, Kompass, Autopilot mit Return-Home-Failsafe, zwei INA226-Strommonitore, NRF24-Funk, Diagnose-Webseite und Live-Tuning für PID und Navigation — samt selbst entwickelter Fernsteuerung (eigener Sender). Entwickelt über v0 bis v8.',
+   related:['rally','halter'],
+   memories:['erinnerung-erster-start-boot'],
+   tags:['ESP32','FreeRTOS','GPS','Autopilot','Eigener Sender']},
+
+  {id:'rally', category:'hw', type:'projekt', status:'aktiv', size:11, title:'Rally-Telemetrie',
+   shortDescription:'Telemetriesystem für den Dacia Duster 2013.',
+   longDescription:'Telemetriesystem für den Dacia Duster 2013: ESP32 mit GPS, CAN-Bus, IMU, SD-Logging und WebSocket-Live-Dashboard.',
+   related:['cam'],
+   tags:['ESP32','CAN-Bus','IMU','WebSocket']},
+
+  {id:'visiten', category:'hw', type:'projekt', status:'aktiv', size:10, title:'Visitenkartenscanner',
+   shortDescription:'ESP32-Scanner mit OCR und KI-Auswertung für Visitenkarten.',
+   longDescription:'ESP32-Scanner mit OCR und KI-Auswertung, der Visitenkarten automatisch erfasst und ausliest.',
+   related:['ocrki'],
+   tags:['ESP32','OCR','KI']},
+
+  {id:'rgb', category:'hw', type:'projekt', status:'aktiv', size:8, title:'RGB LED Controller',
+   shortDescription:'Kompakter ESP8266-Controller für RGB-, RGBW- und WS2812-LEDs.',
+   longDescription:'Kompakter ESP8266-Controller für RGB-, RGBW- und WS2812-LEDs.',
+   related:['smarthome','gehaeuse'],
+   tags:['ESP8266','WS2812','RGBW']},
+
+  {id:'pt100', category:'hw', type:'projekt', status:'aktiv', size:7, title:'PT100 Messmodule',
+   shortDescription:'Präzise Temperaturmessung mit ESP-Modulen — wiederverwendbar in vielen anderen Projekten.',
+   longDescription:'Präzise Temperaturmessung mit ESP-Modulen — wiederverwendbar in vielen anderen Projekten, z. B. der Poolsteuerung.',
+   tags:['PT100','Temperatur','ESP']},
+
+  {id:'blei', category:'machine', type:'projekt', status:'aktiv', size:8, title:'Bleiformmaschine',
+   shortDescription:'ESP32-gesteuerte Maschine mit ESPAsyncWebServer als Bedienoberfläche.',
+   longDescription:'ESP32-gesteuerte Maschine mit ESPAsyncWebServer als Bedienoberfläche.',
+   related:['achsen','pyromax'],
+   tags:['ESP32','ESPAsyncWebServer']},
+
+  {id:'achsen', category:'machine', type:'projekt', status:'aktiv', size:8, title:'Multi-Achsen-Controller',
+   shortDescription:'Mehrachsensteuerung mit FastAccelStepper, MLX90614 und A4988-Treibern.',
+   longDescription:'Mehrachsensteuerung mit FastAccelStepper, MLX90614-Temperatursensor und A4988-Treibern.',
+   related:['nema','handbuch'],
+   tags:['FastAccelStepper','MLX90614','A4988']},
+
+  {id:'nema', category:'machine', type:'idee', status:'idee', size:6, title:'NEMA17 Wasserkühlung',
+   shortDescription:'Experiment: Wasserkühlung für NEMA17-Schrittmotoren.',
+   longDescription:'Experiment: Wasserkühlung für NEMA17-Schrittmotoren, um höhere Dauerlasten zu ermöglichen.',
+   tags:['NEMA17','Wasserkühlung','Experiment']},
+
+  {id:'cam', category:'hw', type:'projekt', status:'aktiv', size:7, title:'ESP32-CAM Logger',
+   shortDescription:'Kamera-Logging vom ESP32-CAM auf Raspberry Pi mit SSD-Speicher.',
+   longDescription:'Kamera-Logging vom ESP32-CAM auf Raspberry Pi mit SSD-Speicher.',
+   tags:['ESP32-CAM','Raspberry Pi']},
+
+  {id:'gold', category:'hw', type:'projekt', status:'aktiv', size:6, title:'Gold-API Logger',
+   shortDescription:'Logger, der alle 60 Sekunden Goldpreis und Zeitstempel über eine API erfasst.',
+   longDescription:'Logger, der alle 60 Sekunden Goldpreis und Zeitstempel über eine API erfasst.',
+   related:['ibau'],
+   tags:['API','Logging']},
+
+  {id:'watch', category:'hw', type:'projekt', status:'aktiv', size:7, title:'Smartwatch Watchfaces',
+   shortDescription:'Eigene Watchface-Designs für die Thor Smartwatch.',
+   longDescription:'Eigene Watchface-Designs für die Thor Smartwatch — inklusive selbst erstellter Grafiken und Icons.',
+   tags:['Thor Smartwatch','Design','Icons']},
+
+  /* ================= Software ================= */
+  {id:'suite', category:'sw', type:'projekt', status:'aktiv', size:18, title:'MSM BusinessSuite',
+   shortDescription:'Die eigene Unternehmenssoftware — eigenständiges Hauptprojekt neben ZugEinsatzPlaner und ExcelGeocoder.',
+   longDescription:'Die eigene Unternehmenssoftware: Desktop-ERP in C# WinForms mit Excel/EPPlus als Datenbank — Kunden, Aufträge, Produkte, Komponenten, Lager in 2.581 Zeilen und 27 Klassen. Mit Word-Rechnungsgenerierung und zweisprachiger Doku; sogar als möglicher Guinness-Weltrekord recherchiert. Eigenständiges Hauptprojekt: verbunden mit, aber kein Elternprojekt von ZugEinsatzPlaner oder ExcelGeocoder.',
+   related:['zug','ibau','pyromax','excelgeo','sqlite','gitback'],
+   qrTarget:'projects/businesssuite.html',
+   tags:['C#','WinForms','EPPlus','ERP','Word-Templates']},
+
+  {id:'zug', category:'sw', type:'projekt', status:'aktiv', size:12, title:'ZugEinsatzPlaner',
+   shortDescription:'Dienst- und Fahrzeugeinsatzplanung für Eisenbahnen — eigenständiges Hauptprojekt.',
+   longDescription:'Dienst- und Fahrzeugeinsatzplanung für Eisenbahnen (Baureihen 643 und 5062) — mit Wartungs-Tab, Kalender mit Schultagen und Atom-Service-Synchronisierung. Eng verzahnt mit der BusinessSuite, aber ein eigenständiges Hauptprojekt, kein Unterprojekt davon.',
+   tags:['C#','WinForms','Planung','Bahn']},
+
+  {id:'excelgeo', category:'sw', type:'projekt', status:'aktiv', size:9, title:'ExcelGeocoder',
+   shortDescription:'Generator, der aus Excel-Daten PLC- und XAML-Strukturen erzeugt — eigenständiges Hauptprojekt.',
+   longDescription:'Generator, der aus Excel-Daten PLC- und XAML-Strukturen erzeugt — angesiedelt im Umfeld der BusinessSuite, aber ein eigenständiges Hauptprojekt, kein Unterprojekt davon.',
+   tags:['Excel','PLC','XAML','Generator']},
+
+  {id:'shelf', category:'sw', type:'projekt', status:'aktiv', size:16, title:'Memory Shelf (PWA)',
+   shortDescription:'Die digitale Seite des Erinnerungsregals — jedes Fach führt per QR-Code zur passenden Erinnerung.',
+   longDescription:'Die digitale Seite des Erinnerungsregals: Full-Stack-PWA, die jedes Regalfach über QR-Codes mit der Geschichte des Erinnerungsstücks verknüpft. Vite + React + TypeScript, IndexedDB offline, im dunklen, musealen Look. Die Fach-QR-Codes bleiben eigene, direkte Links — MSM Neural zeigt dieselben Einträge zusätzlich als Knoten.',
+   related:['nft','memoir'],
+   ideas:['museum','kiarchiv'],
+   qrTarget:'https://memoryshelf.example/',
+   tags:['React','TypeScript','PWA','IndexedDB','QR-Codes']},
+
+  {id:'msmneural', category:'sw', type:'projekt', status:'aktiv', size:14, title:'MSM Neural / Projektlandkarte',
+   shortDescription:'Diese interaktive Projekt-, Ideen- und Erinnerungslandkarte selbst.',
+   longDescription:'Automatisch aus einer zentralen Datenstruktur erzeugtes Netzwerk aller Projekte, Ideen, Maschinen und Erinnerungen. Der äußere QR-Code am Erinnerungsregal führt genau hierher — zur Gesamtübersicht, nicht zu einer einzelnen Erinnerung. Neue Einträge entstehen automatisch aus der Datenstruktur, ohne dass Linien, Karten oder Buttons von Hand gebaut werden müssen.',
+   origin:'aus dem Wunsch, alle Projekte, Ideen und Erinnerungen an einem Ort sichtbar zu machen',
+   related:['shelf','regal','museum'],
+   tags:['Canvas','JavaScript','Netzwerk-Visualisierung','Ein-Datei-Anwendung']},
+
+  {id:'gitback', category:'sw', type:'projekt', status:'aktiv', size:7, title:'Git Auto Backup',
+   shortDescription:'Automatische Bitbucket-Backups — die Absicherung für alle Softwareprojekte.',
+   longDescription:'Automatische Bitbucket-Backups — die Absicherung für alle Softwareprojekte.',
+   related:['linuxsrv'],
+   tags:['Git','Bitbucket','Automatisierung']},
+
+  {id:'sqlite', category:'sw', type:'idee', status:'idee', size:9, title:'SQLite Migration',
+   shortDescription:'Umstellung der bestehenden Excel-basierten Programme auf SQLite.',
+   longDescription:'Umstellung der bestehenden Excel-basierten Programme auf SQLite — die Zukunft aller Businessprogramme.',
+   tags:['SQLite','Migration','Datenbank']},
+
+  {id:'linuxsrv', category:'sw', type:'projekt', status:'aktiv', size:11, title:'Linux Server Hosting',
+   shortDescription:'Eigener Docker-Server unter Linux als Zielplattform für viele Projekte.',
+   longDescription:'Eigener Docker-Server unter Linux als Zielplattform für viele Projekte — vom Lagersystem bis zu KI-Diensten.',
+   related:['kiassist','server'],
+   tags:['Linux','Docker','Self-Hosting']},
+
+  {id:'ibau', category:'sw', type:'projekt', status:'aktiv', size:9, title:'ibau.de Scraper',
+   shortDescription:'Playwright-basierter C#-Scraper mit deutlichem Performance-Gewinn.',
+   longDescription:'Playwright-basierter C#-Scraper mit ~60 % Performance-Gewinn durch optimiertes Polling und Angular-Virtual-Scroll-bewusste DOM-Traversierung.',
+   tags:['C#','Playwright','Scraping']},
+
+  {id:'crypto', category:'sw', type:'projekt', status:'aktiv', size:7, title:'AES/RSA-Tool',
+   shortDescription:'Eigenes Entschlüsselungswerkzeug für AES- und RSA-verschlüsselte Daten.',
+   longDescription:'Eigenes Entschlüsselungswerkzeug für AES- und RSA-verschlüsselte Daten.',
+   related:['nft'],
+   tags:['Kryptografie','C#']},
+
+  {id:'fwsim', category:'sw', type:'projekt', status:'aktiv', size:8, title:'FW-Sim Replik',
+   shortDescription:'Nachbau eines Feuerwerk-Simulators in Unity mit C#.',
+   longDescription:'Nachbau eines Feuerwerk-Simulators in Unity mit C#.',
+   related:['pyromax'],
+   tags:['Unity','C#','Simulation']},
+
+  {id:'nft', category:'sw', type:'projekt', status:'aktiv', size:7, title:'AI NFT Generator',
+   shortDescription:'KI-Bildgenerator, trainiert auf rund 5.000 eigenen Bildern.',
+   longDescription:'KI-Bildgenerator, trainiert auf rund 5.000 eigenen Bildern.',
+   tags:['KI','Training','Generativ']},
+
+  /* ================= Pyrotechnik ================= */
+  {id:'pyromax', category:'pyro', type:'projekt', status:'aktiv', size:14, title:'PyroMax.at',
+   shortDescription:'Das eigene Pyrotechnik-Geschäft.',
+   longDescription:'Das eigene Pyrotechnik-Geschäft — inklusive dunkler Produktbroschüre, erstellt mit ReportLab als PDF.',
+   tags:['Business','Feuerwerk','ReportLab']},
+
+  /* ================= Schreiben ================= */
+  {id:'memoir', category:'write', type:'projekt', status:'aktiv', size:16, title:'Vom Denken zum Erschaffen',
+   shortDescription:'Zweibändige Memoiren über den Weg durch die Welt der Ideen und Maschinen.',
+   longDescription:'Zweibändige Memoiren über den Weg durch die Welt der Ideen und Maschinen: Kindheitsexperimente, Lehrjahre, Werkstätten — plus ein persönlicher, unveröffentlichter Teil. Minimalistisch, reflektiert, geerdet. Das eigene Buch, an dem laufend weitergeschrieben wird.',
+   related:['grab','virus','handbuch','youtube'],
+   tags:['Memoiren','docx-Generierung','Deutsch','2 Bände','Eigenes Buch']},
+
+  {id:'handbuch', category:'write', type:'projekt', status:'abgeschlossen', size:13, title:'Elektronik-Handbuch',
+   shortDescription:'Über 140 Seiten persönliches Nachschlagewerk zu Elektronik.',
+   longDescription:'Über 140 Seiten persönliches Nachschlagewerk: 65 Kapitel von passiven Bauteilen bis HF, 300+ Problemlöser-Einträge, 275+ Abkürzungen mit Farbcodierung. Gebaut mit Node.js und der docx-Bibliothek.',
+   tags:['Node.js','docx','65 Kapitel','Referenz']},
+
+  {id:'grab', category:'write', type:'projekt', status:'abgeschlossen', size:9, title:'Das Grab zwischen den Kapellen',
+   shortDescription:'Found-Footage-Horror-Drehbuch in einem österreichischen Gasthof.',
+   longDescription:'Found-Footage-Horror-Drehbuch: 15 Szenen in einem österreichischen Gasthof, ein Krampus-artiges Wesen, das nur auf Kamera sichtbar ist, und ein Loop-Ende.',
+   related:['virus'],
+   tags:['Drehbuch','Horror','Österreich']},
+
+  {id:'virus', category:'write', type:'projekt', status:'abgeschlossen', size:9, title:'Virus 561',
+   shortDescription:'Sci-Fi-Thriller in fünf Akten über ein Forschungsinstitut und ein Virus.',
+   longDescription:'Sci-Fi-Thriller in fünf Akten über ein Forschungsinstitut und ein von Wölfen übertragenes Virus — mit Doppelagent, mehrdeutigem Wesen und Cliffhanger. Exportiert als Fountain für Trelby.',
+   tags:['Drehbuch','Sci-Fi','Fountain']},
+
+  /* ================= 3D-Druck ================= */
+  {id:'gehaeuse', category:'workshop', type:'projekt', status:'aktiv', size:10, title:'Gehäusefertigung',
+   shortDescription:'Eigene 3D-gedruckte Gehäuse für Zündanlage, ESP-Projekte und die Controller Box.',
+   longDescription:'Eigene 3D-gedruckte Gehäuse: für die Zündanlage (Feuerwerksgehäuse), für ESP-Projekte und als Basis für die geplante Controller Box des MSM Bus-Systems.',
+   tags:['3D-Druck','Gehäuse','Zündanlage','ESP']},
+
+  {id:'halter', category:'workshop', type:'projekt', status:'aktiv', size:9, title:'Halterungen & Werkstatt',
+   shortDescription:'Funktionsdrucke rund um Werkstatt und Projekte.',
+   longDescription:'Funktionsdrucke rund um Werkstatt und Projekte: Poolhalterungen und Adapter für die Pooltechnik, Servo- und GPS-Halter fürs Futterboot sowie eigene Werkzeughalter zur Werkstattorganisation.',
+   related:['digiwerk'],
+   tags:['3D-Druck','Halterungen','Werkzeughalter','Adapter']},
+
+  /* ================= KI-Projekte ================= */
+  {id:'kiassist', category:'ki', type:'idee', status:'idee', size:13, title:'Lokaler KI-Assistent',
+   shortDescription:'Eine eigene KI auf dem lokalen Server — die zentrale Intelligenz für weitere KI-Ideen.',
+   longDescription:'Eine eigene KI auf dem lokalen Server — die zentrale Intelligenz, an die Sprachsteuerung, Dokumentations-KI und Datenauswertung andocken sollen.',
+   related:['kiarchiv'],
+   ideas:['sprach','dokuki','ocrki'],
+   tags:['Lokale KI','Self-Hosted','LLM']},
+
+  {id:'sprach', category:'ki', type:'idee', status:'idee', size:8, title:'Sprachsteuerung',
+   shortDescription:'Bedienung der eigenen Projekte per Sprache.',
+   longDescription:'Bedienung der eigenen Projekte per Sprache — vom Smart Home bis zur Werkstatt.',
+   related:['smarthome'],
+   tags:['Sprache','Steuerung']},
+
+  {id:'ocrki', category:'ki', type:'idee', status:'idee', size:9, title:'OCR & Datenauswertung',
+   shortDescription:'Automatische Texterkennung kombiniert mit KI-Analyse von Messwerten.',
+   longDescription:'Automatische Texterkennung für Dokumente kombiniert mit KI-Analyse von Messwerten — die Auswertungsschicht über den eigenen Sensor- und Dokumentdaten.',
+   tags:['OCR','Analyse','Messwerte']},
+
+  {id:'dokuki', category:'ki', type:'idee', status:'idee', size:8, title:'Dokumentations-KI',
+   shortDescription:'Erstellt automatisch Dokumentationen aus Code.',
+   longDescription:'Erstellt automatisch Dokumentationen aus Code — der logische nächste Schritt nach dem handgebauten Elektronik-Handbuch.',
+   related:['handbuch'],
+   tags:['Codeanalyse','Doku','Automatisierung']},
+
+  {id:'kiarchiv', category:'ki', type:'idee', status:'idee', size:8, title:'KI Erinnerungsarchiv',
+   shortDescription:'KI, die Geschichten zu Erinnerungsstücken automatisch zusammenfasst.',
+   longDescription:'KI, die Geschichten zu Erinnerungsstücken automatisch zusammenfasst — als intelligente Schicht über Memory Shelf und Erinnerungsregal.',
+   related:['museum'],
+   tags:['Zusammenfassung','Erinnerungen','KI']},
+
+  /* ================= Ideen & Visionen ================= */
+  {id:'smarthome', category:'idea', type:'idee', status:'idee', size:13, title:'Eigenes Smart Home',
+   shortDescription:'Vollständig selbst programmiertes Smart Home.',
+   longDescription:'Vollständig selbst programmiertes Smart Home — inklusive eigener Wetterstation, automatischer Gartenbewässerung, Hausüberwachung (Fenster, Türen, Wasser) und Werkstattüberwachung (Temperatur, Luftfeuchtigkeit, Stromverbrauch).',
+   related:['server'],
+   tags:['Smart Home','Wetterstation','Bewässerung','Überwachung']},
+
+  {id:'server', category:'idea', type:'idee', status:'idee', size:10, title:'Heimserver & NAS',
+   shortDescription:'Eigene Server-Landschaft für zu Hause.',
+   longDescription:'Eigene Server-Landschaft für zu Hause: NAS- und Backup-Lösung, Multimedia-Server für Filme, Musik und Fotos sowie Netzwerkmonitor zur Überwachung aller Geräte.',
+   tags:['NAS','Backup','Multimedia','Netzwerkmonitor']},
+
+  {id:'ecosystem', category:'idea', type:'idee', status:'idee', size:13, title:'MSM Elektronik-Ökosystem',
+   shortDescription:'Die große Vision: alle Platinen, Software und Bus-Systeme arbeiten zusammen.',
+   longDescription:'Die große Vision: alle Platinen, Software und Bus-Systeme arbeiten zusammen — eine einheitliche Hardwarefamilie mit IoT-Sensorplattform, modularem, steckbarem Sensorsystem und eigenem Platinen-Ökosystem.',
+   ideas:['digiwerk','produkt'],
+   related:['smarthome'],
+   tags:['Ökosystem','IoT-Plattform','Modulare Sensorik','Platinenfamilie']},
+
+  {id:'digiwerk', category:'workshop', type:'idee', status:'idee', size:10, title:'Werkstattdigitalisierung',
+   shortDescription:'Lager, Werkzeuge, 3D-Drucker, Projekte und Dokumentation vollständig vernetzen.',
+   longDescription:'Lager, Werkzeuge, 3D-Drucker, Projekte und Dokumentation vollständig vernetzen — die Werkstatt als durchgängig digitales System.',
+   tags:['Vernetzung','Werkstatt','Dokumentation']},
+
+  {id:'museum', category:'idea', type:'idee', status:'idee', size:10, title:'Digitales Erinnerungsmuseum',
+   shortDescription:'Der Endausbau des Erinnerungsregals — ein begehbares, digitales Museum der eigenen Vergangenheit.',
+   longDescription:'Der Endausbau des Erinnerungsregals: QR-Codes, Fotos, Videos und Geschichten zu jedem Stück — ein begehbares, digitales Museum der eigenen Vergangenheit.',
+   tags:['Erinnerungen','QR-Codes','Fotos','Videos']},
+
+  {id:'youtube', category:'idea', type:'idee', status:'idee', size:9, title:'YouTube Kanal',
+   shortDescription:'Projekte, Konstruktionen und Erklärvideos sichtbar machen.',
+   longDescription:'Projekte, Konstruktionen und Erklärvideos — die eigenen Maschinen und Ideen sichtbar machen.',
+   tags:['Video','Erklärvideos','Projekte']},
+
+  {id:'produkt', category:'idea', type:'idee', status:'idee', size:9, title:'Eigene Produktlinie',
+   shortDescription:'Ausgewählte Projekte eventuell später verkaufen.',
+   longDescription:'Ausgewählte Projekte eventuell später verkaufen — z. B. die Lagerverwaltung — während andere wie die Zündanlage bewusst Privatprojekte bleiben.',
+   related:['lager'],
+   tags:['Business','Vertrieb','Auswahl']},
+
+  /* ================= Erinnerungen (Beispiele aus dem Erinnerungsregal) ================= */
+  {id:'erinnerung-erste-loetstation', category:'memory', type:'erinnerung', size:7, title:'Erste Lötstation',
+   shortDescription:'Die allererste eigene Lötstation — der Startpunkt von allem, was danach an Elektronik entstanden ist.',
+   origin:'msm',
+   shelfCompartment:'A1',
+   qrTarget:'memory/fach-a1.html',
+   tags:['Elektronik','Anfang','Werkstatt']},
+
+  {id:'erinnerung-erste-platine', category:'memory', type:'erinnerung', size:7, title:'Erste eigene Platine',
+   shortDescription:'Die erste selbst entworfene Leiterplatte — von Hand geroutet, mit allen Anfängerfehlern inklusive.',
+   origin:'msm',
+   shelfCompartment:'B3',
+   qrTarget:'memory/fach-b3.html',
+   tags:['KiCad','Erste Platine','Elektronik']},
+
+  {id:'erinnerung-erster-start-boot', category:'memory', type:'erinnerung', size:7, title:'Erster Start des Futterboots',
+   shortDescription:'Der erste erfolgreiche Wasserstart des Futterboot-Eigenbaus.',
+   origin:'boot',
+   shelfCompartment:'C7',
+   qrTarget:'memory/fach-c7.html',
+   tags:['Futterboot','Erster Test','Wasser']}
+];
+
+/* =========================================================================
+   Automatischer Graphenaufbau
+   -------------------------------------------------------------------------
+   Aus origin / parent / related / memories / ideas werden hier automatisch
+   Nodes-Referenzen und Kanten erzeugt. Wird ein zweiter Ort für dieselbe
+   Verbindung angegeben (z. B. weil zwei Nodes sich gegenseitig referenzieren),
+   gewinnt die strukturell genauere Kantenart (siehe TYPE_PRIORITY).
+   ========================================================================= */
+const TYPE_PRIORITY = {parent:4, memory:3, idea:3, origin:2, related:1};
+
+const REL_LABELS = {
+  parent:  {forward:'Übergeordnet',  backward:'Unterprojekt'},
+  origin:  {forward:'Stammt aus',    backward:'Ursprung von'},
+  memory:  {forward:'Erinnerung',    backward:'Gehört zu'},
+  idea:    {forward:'Idee daraus',   backward:'Ursprungsprojekt'},
+  related: {forward:'Verwandt',      backward:'Verwandt'}
+};
+
+function buildGraph(data){
+  const byId = Object.fromEntries(data.map(n=>[n.id,n]));
+
+  const nodes = data.map(n=>({
+    ...n,
+    cat: n.category,
+    label: n.title,
+    desc: n.shortDescription || n.longDescription || '',
+    tags: n.tags || [],
+    size: n.size || 9,
+    x:0, y:0, vx:0, vy:0, fixed:false, pinned:false,
+    phase: Math.random()*Math.PI*2
+  }));
+  const nById = Object.fromEntries(nodes.map(n=>[n.id,n]));
+
+  const edgeMap = new Map();
+  function addEdge(aId, bId, type){
+    const a = nById[aId], b = nById[bId];
+    if(!a || !b || a===b) return;
+    const key = [a.id,b.id].sort().join('|');
+    const existing = edgeMap.get(key);
+    if(!existing || TYPE_PRIORITY[type] > TYPE_PRIORITY[existing.type]){
+      edgeMap.set(key, {a,b,type});
+    }
+  }
+
+  nodes.forEach(n=>{
+    if(n.parent) addEdge(n.id, n.parent, 'parent');
+    if(n.origin && nById[n.origin]) addEdge(n.id, n.origin, 'origin');
+    (n.related||[]).forEach(r=>addEdge(n.id, r, 'related'));
+    (n.memories||[]).forEach(m=>addEdge(n.id, m, 'memory'));
+    (n.ideas||[]).forEach(i=>addEdge(n.id, i, 'idea'));
+  });
+
+  const edges = [...edgeMap.values()];
+
+  const neighborIds = {};
+  const edgesByNode = {};
+  nodes.forEach(n=>{ neighborIds[n.id]=new Set(); edgesByNode[n.id]=[]; });
+  edges.forEach(e=>{
+    neighborIds[e.a.id].add(e.b.id);
+    neighborIds[e.b.id].add(e.a.id);
+    edgesByNode[e.a.id].push({other:e.b, edge:e});
+    edgesByNode[e.b.id].push({other:e.a, edge:e});
+  });
+
+  return {nodes, byId:nById, edges, neighborIds, edgesByNode};
+}
+
+function relLabel(edge, viewFromId){
+  const dir = edge.a.id === viewFromId ? 'forward' : 'backward';
+  return REL_LABELS[edge.type][dir];
+}
+
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function slugifyCompartment(c){
+  return String(c).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function ideaHref(n){
+  return (n.type==='idee' || n.type==='projekt') && n.qrTarget ? n.qrTarget : null;
+}
+function memoryHref(n){
+  const isMemoryish = n.type==='erinnerung' || n.type==='objekt' || !!n.shelfCompartment;
+  if(n.qrTarget && isMemoryish) return n.qrTarget;
+  if(n.shelfCompartment) return `memory/fach-${slugifyCompartment(n.shelfCompartment)}.html`;
+  return null;
+}
+
+const graph = buildGraph(nodesData);
+const NODES = graph.nodes;
+const byId = graph.byId;
+const EDGES = graph.edges;
+const neighborIds = graph.neighborIds;
+const edgesByNode = graph.edgesByNode;
+
+NODES.forEach(n=>{
+  const relatedTitles = edgesByNode[n.id].map(({other})=>other.label);
+  const originLabel = n.origin ? (byId[n.origin] ? byId[n.origin].label : n.origin) : '';
+  n._searchText = [
+    n.label, n.shortDescription, n.longDescription, originLabel,
+    CATS[n.cat] && CATS[n.cat].name, TYPE_LABELS[n.type],
+    ...n.tags, ...relatedTitles
+  ].filter(Boolean).join(' ').toLowerCase();
+});
+
+/* ================= Setup ================= */
+const canvas = document.getElementById('net');
+const ctx = canvas.getContext('2d');
+let W, H, DPR = Math.min(window.devicePixelRatio || 1, 2);
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Ansicht: Pan & Zoom */
+const view = {x:0, y:0, k:1};
+function toWorld(sx, sy){ return {x:(sx - view.x)/view.k, y:(sy - view.y)/view.k}; }
+
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* Knoten initialisieren — Cluster grob nach Kategorie platzieren */
+const clusterAngle = {
+  hub:0, hw:-2.4, sw:0.5, pyro:2.6, write:-0.7, print:1.6, ki:-1.4, idea:3.1,
+  memory:2.0, machine:-3.0, workshop:-0.05
+};
+NODES.forEach(n=>{
+  if(n.id==='msm'){ n.x = W/2; n.y = H/2; }
+  else{
+    const a = (clusterAngle[n.cat] ?? 0) + (Math.random()-0.5)*1.1;
+    const r = Math.min(W,H)*0.30 + Math.random()*140;
+    n.x = W/2 + Math.cos(a)*r;
+    n.y = H/2 + Math.sin(a)*r;
+  }
+  n.vx=0; n.vy=0; n.fixed=false; n.pinned=false;
+});
+
+/* ================= Zustand ================= */
+let activeCats = new Set(Object.keys(CATS));
+let selected = null;
+let hovered = null;
+let dragNode = null, dragMoved = false;
+let panning = false, panLast = null;
+let lastClick = {id:null, t:0};
+let searchMatchIds = null;
+
+const VIEW_MODES = [
+  {id:'all',           label:'Alle',                          test:()=>true},
+  {id:'projekte',      label:'Nur Projekte',                  test:n=>n.type==='projekt'},
+  {id:'erinnerungen',  label:'Nur Erinnerungen',              test:n=>n.type==='erinnerung' || n.type==='objekt'},
+  {id:'ideen',         label:'Nur Ideen',                      test:n=>n.type==='idee'},
+  {id:'aktiv',         label:'Nur aktive Projekte',            test:n=>n.type==='projekt' && n.status==='aktiv'},
+  {id:'abgeschlossen', label:'Nur abgeschlossene Projekte',    test:n=>n.type==='projekt' && n.status==='abgeschlossen'},
+  {id:'nieUmgesetzt',  label:'Nur nie umgesetzte Ideen',       test:n=>n.type==='idee' && n.status!=='verworfen'}
+];
+let currentViewMode = VIEW_MODES[0];
+
+function nodeVisible(n){ return activeCats.has(n.cat) && currentViewMode.test(n); }
+function edgeVisible(e){ return nodeVisible(e.a) && nodeVisible(e.b); }
+
+/* ================= Impulse (feuernde Synapsen) ================= */
+const pulses = [];
+function spawnPulse(){
+  const vis = EDGES.filter(edgeVisible);
+  if(!vis.length) return;
+  const e = vis[Math.floor(Math.random()*vis.length)];
+  pulses.push({e, t:0, rev:Math.random()<0.5, speed:0.006+Math.random()*0.008});
+}
+if(!reduceMotion){ setInterval(spawnPulse, 350); }
+
+/* ================= Physik ================= */
+function step(){
+  const cx=W/2, cy=H/2;
+  for(let i=0;i<NODES.length;i++){
+    const a=NODES[i];
+    if(!nodeVisible(a)) continue;
+    a.vx += (cx-a.x)*0.0005;
+    a.vy += (cy-a.y)*0.0005;
+    for(let j=i+1;j<NODES.length;j++){
+      const b=NODES[j];
+      if(!nodeVisible(b)) continue;
+      let dx=a.x-b.x, dy=a.y-b.y;
+      let d2=dx*dx+dy*dy;
+      if(d2<1) d2=1;
+      if(d2<300*300){
+        const d=Math.sqrt(d2);
+        const f=2300/d2;
+        const fx=dx/d*f, fy=dy/d*f;
+        a.vx+=fx; a.vy+=fy; b.vx-=fx; b.vy-=fy;
+      }
+    }
+  }
+  EDGES.forEach(e=>{
+    if(!edgeVisible(e)) return;
+    const rest = (e.a.id==='msm'||e.b.id==='msm') ? 230 : 120 + (e.a.size+e.b.size)*1.5;
+    let dx=e.b.x-e.a.x, dy=e.b.y-e.a.y;
+    const d=Math.sqrt(dx*dx+dy*dy)||1;
+    const f=(d-rest)*0.0026;
+    const fx=dx/d*f, fy=dy/d*f;
+    e.a.vx+=fx; e.a.vy+=fy; e.b.vx-=fx; e.b.vy-=fy;
+  });
+  NODES.forEach(n=>{
+    if(!nodeVisible(n)) return;
+    if(n.fixed || n.pinned){ n.vx=0; n.vy=0; return; }
+    n.vx*=0.86; n.vy*=0.86;
+    n.x+=n.vx; n.y+=n.vy;
+  });
+}
+
+/* ================= Zeichnen ================= */
+let time=0;
+function hexA(hex,a){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+const EDGE_STYLES = {
+  related: {color:'rgba(90,110,140,0.26)',  width:1,   dash:null},
+  origin:  {color:'rgba(150,195,255,0.45)', width:1.2, dash:null},
+  parent:  {color:e=>hexA(CATS[e.b.cat].color, 0.55), width:1.8, dash:null},
+  memory:  {color:'rgba(201,162,75,0.55)',  width:1.1, dash:[2,3]},
+  idea:    {color:'rgba(147,164,190,0.55)', width:1.1, dash:[6,3]}
+};
+
+function draw(){
+  time+=0.016;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  /* dezentes Raster (mit der Karte mitbewegt) */
+  ctx.strokeStyle='rgba(120,145,180,0.045)';
+  ctx.lineWidth=1;
+  const g=64*view.k;
+  if(g>18){
+    ctx.beginPath();
+    for(let x=(view.x%g+g)%g; x<W; x+=g){ ctx.moveTo(x,0); ctx.lineTo(x,H); }
+    for(let y=(view.y%g+g)%g; y<H; y+=g){ ctx.moveTo(0,y); ctx.lineTo(W,y); }
+    ctx.stroke();
+  }
+
+  /* Welt-Transformation */
+  ctx.setTransform(DPR*view.k, 0, 0, DPR*view.k, DPR*view.x, DPR*view.y);
+
+  const focus = selected || hovered;
+  const focusSet = focus ? new Set([focus.id, ...neighborIds[focus.id]]) : null;
+
+  /* Kanten */
+  EDGES.forEach(e=>{
+    if(!edgeVisible(e)) return;
+    const inFocus = focusSet && (e.a.id===focus.id || e.b.id===focus.id);
+    ctx.beginPath();
+    ctx.moveTo(e.a.x,e.a.y);
+    ctx.lineTo(e.b.x,e.b.y);
+    ctx.setLineDash([]);
+    if(inFocus){
+      ctx.strokeStyle='rgba(201,138,75,0.75)';
+      ctx.lineWidth=1.5/view.k;
+    }else if(focusSet){
+      ctx.strokeStyle='rgba(90,110,140,0.08)';
+      ctx.lineWidth=1/view.k;
+    }else{
+      const style = EDGE_STYLES[e.type] || EDGE_STYLES.related;
+      ctx.strokeStyle = typeof style.color==='function' ? style.color(e) : style.color;
+      ctx.lineWidth = style.width/view.k;
+      if(style.dash) ctx.setLineDash(style.dash.map(d=>d/view.k));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  /* Impulse */
+  for(let i=pulses.length-1;i>=0;i--){
+    const p=pulses[i];
+    p.t+=p.speed;
+    if(p.t>=1 || !edgeVisible(p.e)){ pulses.splice(i,1); continue; }
+    const t=p.rev?1-p.t:p.t;
+    const x=p.e.a.x+(p.e.b.x-p.e.a.x)*t;
+    const y=p.e.a.y+(p.e.b.y-p.e.a.y)*t;
+    const col=CATS[(p.rev?p.e.a:p.e.b).cat].color;
+    const glow=ctx.createRadialGradient(x,y,0,x,y,9);
+    glow.addColorStop(0,col);
+    glow.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=glow;
+    ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(x,y,1.6,0,Math.PI*2); ctx.fill();
+  }
+
+  /* Knoten */
+  NODES.forEach(n=>{
+    if(!nodeVisible(n)) return;
+    const col=CATS[n.cat].color;
+    const isFocus = focus && n.id===focus.id;
+    const passesFocus = !focusSet || focusSet.has(n.id);
+    const passesSearch = !searchMatchIds || searchMatchIds.has(n.id);
+    const inFocus = passesFocus && passesSearch;
+    const alpha = inFocus ? 1 : (passesSearch ? 0.22 : 0.08);
+    const pulse = reduceMotion ? 0 : Math.sin(time*1.6+n.phase)*1.4;
+    const r = n.size + (isFocus?3:0) + pulse*0.4;
+
+    /* Halo */
+    const halo=ctx.createRadialGradient(n.x,n.y,r*0.4,n.x,n.y,r*2.4);
+    halo.addColorStop(0, hexA(col, 0.28*alpha));
+    halo.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=halo;
+    ctx.beginPath(); ctx.arc(n.x,n.y,r*2.4,0,Math.PI*2); ctx.fill();
+
+    /* Kern */
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle='#0A0F18';
+    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2); ctx.fill();
+    ctx.lineWidth=(isFocus?2.2:1.4)/Math.max(view.k,0.6);
+    ctx.strokeStyle=col;
+    if(n.status==='idee' || n.status==='verworfen'){ ctx.setLineDash(n.status==='verworfen' ? [1.5,3] : [4,4]); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* Pin-Ring */
+    if(n.pinned){
+      ctx.lineWidth=1/Math.max(view.k,0.6);
+      ctx.strokeStyle='rgba(237,227,208,0.7)';
+      ctx.beginPath(); ctx.arc(n.x,n.y,r+4,0,Math.PI*2); ctx.stroke();
+    }
+
+    ctx.fillStyle=hexA(col, n.id==='msm'?0.9:(n.status==='idee'?0.35:0.55));
+    ctx.beginPath(); ctx.arc(n.x,n.y,r*0.38,0,Math.PI*2); ctx.fill();
+
+    /* Beschriftung — kleine Labels bei starkem Rauszoomen ausblenden */
+    const showLabel = isFocus || view.k > 0.55 || n.size >= 13;
+    if(showLabel){
+      ctx.font=(n.id==='msm'?'600 13px':'500 11px')+" 'IBM Plex Mono',monospace";
+      ctx.textAlign='center';
+      ctx.fillStyle= inFocus ? 'rgba(220,230,242,0.92)' : 'rgba(220,230,242,0.25)';
+      ctx.fillText(n.label, n.x, n.y+r+15);
+    }
+    ctx.globalAlpha=1;
+  });
+
+  step();
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+/* ================= Interaktion ================= */
+function nodeAt(wx,wy){
+  for(let i=NODES.length-1;i>=0;i--){
+    const n=NODES[i];
+    if(!nodeVisible(n)) continue;
+    const dx=wx-n.x, dy=wy-n.y;
+    const hit=(n.size+9);
+    if(dx*dx+dy*dy < hit*hit) return n;
+  }
+  return null;
+}
+
+const pointers = new Map();
+let pinchStart = null;
+
+canvas.addEventListener('pointerdown', ev=>{
+  canvas.setPointerCapture(ev.pointerId);
+  pointers.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+
+  if(pointers.size===2){
+    /* Pinch beginnt — Drag/Pan abbrechen */
+    if(dragNode){ dragNode.fixed=false; dragNode=null; }
+    panning=false;
+    const [p1,p2]=[...pointers.values()];
+    pinchStart={
+      d:Math.hypot(p2.x-p1.x,p2.y-p1.y),
+      k:view.k,
+      mid:{x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2},
+      vx:view.x, vy:view.y
+    };
+    return;
+  }
+
+  const w=toWorld(ev.clientX, ev.clientY);
+  const n=nodeAt(w.x,w.y);
+  if(n){
+    dragNode=n; dragMoved=false; n.fixed=true;
+    canvas.classList.add('dragging');
+  }else{
+    panning=true; dragMoved=false;
+    panLast={x:ev.clientX,y:ev.clientY};
+    canvas.classList.add('dragging');
+  }
+});
+
+canvas.addEventListener('pointermove', ev=>{
+  if(pointers.has(ev.pointerId)) pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+
+  if(pinchStart && pointers.size===2){
+    const [p1,p2]=[...pointers.values()];
+    const d=Math.hypot(p2.x-p1.x,p2.y-p1.y);
+    const mid={x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};
+    const k=Math.max(0.3,Math.min(3,pinchStart.k*d/pinchStart.d));
+    /* um Pinch-Mittelpunkt zoomen */
+    const wx=(pinchStart.mid.x-pinchStart.vx)/pinchStart.k;
+    const wy=(pinchStart.mid.y-pinchStart.vy)/pinchStart.k;
+    view.k=k;
+    view.x=mid.x-wx*k;
+    view.y=mid.y-wy*k;
+    return;
+  }
+
+  if(dragNode){
+    const w=toWorld(ev.clientX, ev.clientY);
+    dragNode.x=w.x; dragNode.y=w.y;
+    dragMoved=true;
+  }else if(panning && panLast){
+    view.x += ev.clientX-panLast.x;
+    view.y += ev.clientY-panLast.y;
+    if(Math.abs(ev.clientX-panLast.x)+Math.abs(ev.clientY-panLast.y)>2) dragMoved=true;
+    panLast={x:ev.clientX,y:ev.clientY};
+  }else{
+    const w=toWorld(ev.clientX, ev.clientY);
+    hovered=nodeAt(w.x,w.y);
+    canvas.style.cursor = hovered ? 'pointer' : 'grab';
+  }
+});
+
+function endPointer(ev){
+  pointers.delete(ev.pointerId);
+  if(pointers.size<2) pinchStart=null;
+
+  if(dragNode){
+    const n=dragNode;
+    n.fixed=false;
+    dragNode=null;
+    canvas.classList.remove('dragging');
+    if(!dragMoved){
+      const now=performance.now();
+      if(lastClick.id===n.id && now-lastClick.t<350){
+        /* Doppelklick: anpinnen / lösen */
+        n.pinned=!n.pinned;
+        lastClick={id:null,t:0};
+      }else{
+        lastClick={id:n.id,t:now};
+      }
+      selectNode(n);
+    }
+  }else if(panning){
+    panning=false; panLast=null;
+    canvas.classList.remove('dragging');
+    if(!dragMoved) closePanel();
+  }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+/* Maus-Zoom */
+canvas.addEventListener('wheel', ev=>{
+  ev.preventDefault();
+  const k=Math.max(0.3,Math.min(3, view.k*Math.exp(-ev.deltaY*0.0012)));
+  const wx=(ev.clientX-view.x)/view.k;
+  const wy=(ev.clientY-view.y)/view.k;
+  view.k=k;
+  view.x=ev.clientX-wx*k;
+  view.y=ev.clientY-wy*k;
+},{passive:false});
+
+/* ================= Panel ================= */
+const panel=document.getElementById('panel');
+
+function configureActionButton(btn, target, label){
+  btn.textContent = target ? label : 'Noch keine Detailseite';
+  if(target){
+    btn.classList.remove('disabled');
+    btn.onclick = ()=> window.open(target, '_blank', 'noopener');
+  }else{
+    btn.classList.add('disabled');
+    btn.onclick = null;
+  }
+}
+
+function selectNode(n){
+  selected=n;
+  const col=CATS[n.cat].color;
+  panel.style.setProperty('--pc',col);
+
+  document.getElementById('pCat').textContent=CATS[n.cat].name;
+
+  const typeEl=document.getElementById('pType');
+  const typeLabel=TYPE_LABELS[n.type];
+  typeEl.hidden=!typeLabel;
+  typeEl.textContent=typeLabel||'';
+
+  const statusEl=document.getElementById('pStatus');
+  const statusLabel=STATUS_LABELS[n.status];
+  statusEl.hidden=!statusLabel;
+  statusEl.textContent=statusLabel||'';
+
+  document.getElementById('pTitle').textContent=n.label;
+
+  const subEl=document.getElementById('pSubtitle');
+  const hasBoth = n.shortDescription && n.longDescription && n.shortDescription!==n.longDescription;
+  subEl.hidden=!hasBoth;
+  subEl.textContent=hasBoth?n.shortDescription:'';
+  document.getElementById('pDesc').textContent = n.longDescription || n.shortDescription || '';
+
+  /* Meta: Herkunft / Übergeordnet / Zeitraum */
+  const meta=document.getElementById('pMeta');
+  meta.innerHTML='';
+  if(n.origin){
+    const originNode = byId[n.origin];
+    const line=document.createElement('div'); line.className='meta-line';
+    line.innerHTML=`Herkunft: <b>${esc(originNode?originNode.label:n.origin)}</b>`;
+    meta.appendChild(line);
+  }
+  if(n.parent && byId[n.parent]){
+    const line=document.createElement('div'); line.className='meta-line';
+    line.innerHTML=`Übergeordnet: <b>${esc(byId[n.parent].label)}</b>`;
+    meta.appendChild(line);
+  }
+  if(n.createdApprox){
+    const line=document.createElement('div'); line.className='meta-line';
+    line.innerHTML=`Zeitraum: <b>${esc(n.createdApprox)}</b>`;
+    meta.appendChild(line);
+  }
+  if(n.shelfCompartment){
+    const line=document.createElement('div'); line.className='meta-line';
+    line.innerHTML=`Regalfach: <b>${esc(n.shelfCompartment)}</b>`;
+    meta.appendChild(line);
+  }
+
+  /* Tags */
+  const tags=document.getElementById('pTags');
+  tags.innerHTML='';
+  n.tags.forEach(t=>{
+    const el=document.createElement('span');
+    el.className='tag'; el.textContent=t; tags.appendChild(el);
+  });
+
+  /* Aktionen */
+  configureActionButton(document.getElementById('btnIdea'), ideaHref(n), 'Idee öffnen');
+  configureActionButton(document.getElementById('btnMemory'), memoryHref(n), 'Erinnerung öffnen');
+
+  /* Externe Links */
+  const extSection=document.getElementById('pExtLinksSection');
+  const extWrap=document.getElementById('pExtLinks');
+  extWrap.innerHTML='';
+  const links=n.links||[];
+  extSection.hidden = links.length===0;
+  links.forEach(l=>{
+    const url = typeof l==='string' ? l : l.url;
+    const label = typeof l==='string' ? l : (l.label||l.url);
+    const a=document.createElement('a');
+    a.className='ext-link'; a.href=url; a.target='_blank'; a.rel='noopener';
+    a.textContent=label;
+    extWrap.appendChild(a);
+  });
+
+  /* Verbunden mit */
+  const linksWrap=document.getElementById('pLinks');
+  linksWrap.innerHTML='';
+  edgesByNode[n.id]
+    .filter(({other})=>nodeVisible(other))
+    .forEach(({other,edge})=>{
+      const btn=document.createElement('button');
+      btn.className='link-node';
+      btn.style.setProperty('--lc',CATS[other.cat].color);
+      btn.innerHTML=`<span class="dot"></span><span class="rel-tag">${esc(relLabel(edge,n.id))}</span> ${esc(other.label)}`;
+      btn.addEventListener('click',()=>selectNode(other));
+      linksWrap.appendChild(btn);
+    });
+
+  panel.classList.add('open');
+}
+function closePanel(){ selected=null; panel.classList.remove('open'); }
+document.getElementById('closeBtn').addEventListener('click',closePanel);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePanel(); });
+
+/* ================= Filter, Ansicht & Suche ================= */
+const nav=document.getElementById('filters');
+
+const viewSelect=document.createElement('select');
+viewSelect.className='chip-select';
+viewSelect.setAttribute('aria-label','Ansicht');
+VIEW_MODES.forEach(v=>{
+  const opt=document.createElement('option');
+  opt.value=v.id; opt.textContent=v.label;
+  viewSelect.appendChild(opt);
+});
+viewSelect.addEventListener('change',()=>{
+  currentViewMode = VIEW_MODES.find(v=>v.id===viewSelect.value) || VIEW_MODES[0];
+  if(selected && !nodeVisible(selected)) closePanel();
+  updateStats();
+});
+nav.appendChild(viewSelect);
+
+const searchInput=document.createElement('input');
+searchInput.type='search';
+searchInput.className='search-input';
+searchInput.placeholder='Suche…';
+searchInput.setAttribute('aria-label','Suche');
+searchInput.addEventListener('input',()=>{
+  const q=searchInput.value.trim().toLowerCase();
+  searchMatchIds = q ? new Set(NODES.filter(n=>n._searchText.includes(q)).map(n=>n.id)) : null;
+});
+nav.appendChild(searchInput);
+
+Object.entries(CATS).forEach(([key,c])=>{
+  if(key==='hub') return;
+  const btn=document.createElement('button');
+  btn.className='chip active';
+  btn.style.setProperty('--c',c.color);
+  const dashed = (key==='ki'||key==='idea') ? ' dashed' : '';
+  btn.innerHTML=`<span class="dot${dashed}"></span>${c.name}`;
+  btn.addEventListener('click',()=>{
+    if(activeCats.has(key)){ activeCats.delete(key); btn.classList.remove('active'); btn.classList.add('muted'); }
+    else{ activeCats.add(key); btn.classList.add('active'); btn.classList.remove('muted'); }
+    if(selected && !nodeVisible(selected)) closePanel();
+    updateStats();
+  });
+  nav.appendChild(btn);
+});
+
+/* Ansicht zurücksetzen */
+const resetBtn=document.createElement('button');
+resetBtn.className='chip util';
+resetBtn.style.setProperty('--c','#C98A4B');
+resetBtn.textContent='⟲ Ansicht';
+resetBtn.addEventListener('click',()=>{ view.x=0; view.y=0; view.k=1; });
+nav.appendChild(resetBtn);
+
+/* ================= Statistik ================= */
+function updateStats(){
+  const vis=NODES.filter(nodeVisible);
+  const edg=EDGES.filter(edgeVisible).length;
+  const ideen=vis.filter(n=>n.status==='idee').length;
+  document.getElementById('stats').innerHTML=
+    `KNOTEN <b>${vis.length}</b> / ${NODES.length}<br>SYNAPSEN <b>${edg}</b> / ${EDGES.length}<br>DAVON IDEEN <b>${ideen}</b>`;
+}
+updateStats();
+</script>
+</body>
+</html>

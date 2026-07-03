@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/instrument-serif": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
+    "@noble/hashes": "^2.2.0",
     "idb": "^8.0.3",
     "qrcode": "^1.5.4",
     "react": "^19.2.7",
