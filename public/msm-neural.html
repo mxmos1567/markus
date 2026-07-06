@@ -214,7 +214,7 @@
 <nav id="filters" aria-label="Kategoriefilter"></nav>
 <div class="hint">
   Klicken = Details · Ziehen = Verschieben<br>
-  Lange drücken = Verbindungen zeigen<br>
+  Lange drücken = Verbindungen · Tippen = zurück<br>
   Doppelklick = Anpinnen · Scrollen = Zoom<br>
   Fläche ziehen = Karte bewegen
 </div>
@@ -813,7 +813,11 @@ let searchMatchIds = null;
 /* Lange drücken: dauerhaft alle direkten Verbindungen eines Punktes zeigen */
 let linkFocus = null;
 let longPressTimer = null, longPressFired = false;
-const LONG_PRESS_MS = 450;
+const LONG_PRESS_MS = 420;
+/* Erst ab dieser Fingerbewegung zählt es als Ziehen (sonst Tap/Long-Press).
+   So bricht leichtes Wackeln beim Halten die Geste nicht ab. */
+const DRAG_THRESHOLD = 8;
+let downX = 0, downY = 0;
 
 const VIEW_MODES = [
   {id:'all',           label:'Alle',                          test:()=>true},
@@ -1049,12 +1053,13 @@ canvas.addEventListener('pointerdown', ev=>{
     return;
   }
 
+  downX=ev.clientX; downY=ev.clientY;
   const w=toWorld(ev.clientX, ev.clientY);
   const n=nodeAt(w.x,w.y);
   if(n){
     dragNode=n; dragMoved=false; n.fixed=true;
     canvas.classList.add('dragging');
-    /* Lange drücken (ohne zu ziehen) → Verbindungen dieses Punktes zeigen */
+    /* Lange drücken (ohne wirklich zu ziehen) → Verbindungen dieses Punktes zeigen */
     longPressFired=false;
     clearTimeout(longPressTimer);
     longPressTimer=setTimeout(()=>{
@@ -1085,14 +1090,16 @@ canvas.addEventListener('pointermove', ev=>{
   }
 
   if(dragNode){
+    /* Erst ab der Schwelle als Ziehen behandeln — kleines Wackeln beim
+       Halten bewegt den Punkt nicht und bricht den Long-Press nicht ab. */
+    if(!dragMoved && Math.hypot(ev.clientX-downX, ev.clientY-downY) <= DRAG_THRESHOLD) return;
+    if(!dragMoved){ clearTimeout(longPressTimer); dragMoved=true; }
     const w=toWorld(ev.clientX, ev.clientY);
     dragNode.x=w.x; dragNode.y=w.y;
-    if(!dragMoved) clearTimeout(longPressTimer); /* Ziehen → kein Long-Press */
-    dragMoved=true;
   }else if(panning && panLast){
     view.x += ev.clientX-panLast.x;
     view.y += ev.clientY-panLast.y;
-    if(Math.abs(ev.clientX-panLast.x)+Math.abs(ev.clientY-panLast.y)>2) dragMoved=true;
+    if(Math.hypot(ev.clientX-downX, ev.clientY-downY) > DRAG_THRESHOLD) dragMoved=true;
     panLast={x:ev.clientX,y:ev.clientY};
   }else{
     const w=toWorld(ev.clientX, ev.clientY);
@@ -1112,18 +1119,23 @@ function endPointer(ev){
     clearTimeout(longPressTimer);
     canvas.classList.remove('dragging');
     if(longPressFired){
-      /* War ein Long-Press → Verbindungen wurden gezeigt, kein normaler Klick */
+      /* War der Long-Press, der die Verbindungsansicht gerade eingeschaltet hat */
       longPressFired=false;
     }else if(!dragMoved){
-      const now=performance.now();
-      if(lastClick.id===n.id && now-lastClick.t<350){
-        /* Doppelklick: anpinnen / lösen */
-        n.pinned=!n.pinned;
-        lastClick={id:null,t:0};
+      if(linkFocus){
+        /* Verbindungsansicht aktiv → jeder kurze Klick beendet sie sofort */
+        linkFocus=null; closePanel();
       }else{
-        lastClick={id:n.id,t:now};
+        const now=performance.now();
+        if(lastClick.id===n.id && now-lastClick.t<350){
+          /* Doppelklick: anpinnen / lösen */
+          n.pinned=!n.pinned;
+          lastClick={id:null,t:0};
+        }else{
+          lastClick={id:n.id,t:now};
+        }
+        selectNode(n);
       }
-      selectNode(n);
     }
   }else if(panning){
     panning=false; panLast=null;
