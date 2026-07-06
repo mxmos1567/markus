@@ -288,21 +288,29 @@ const CATS = {
   idea:     {name:'Ideen & Visionen',     color:'#93A4BE'},
   memory:   {name:'Erinnerungen',         color:'#C9A24B'},
   machine:  {name:'Maschinen',            color:'#6C8CFF'},
-  workshop: {name:'Werkstatt',            color:'#A9A56B'}
+  workshop: {name:'Werkstatt',            color:'#A9A56B'},
+  person:   {name:'Personen',             color:'#E0A9B0'}
 };
+
+/* Fallback, falls in den Daten eine unbekannte Kategorie auftaucht — so
+   stürzt die Seite nie ab, sondern zeigt den Knoten neutral grau an. */
+function catOf(id){ return CATS[id] || {name:id, color:'#8A93A6'}; }
 
 const TYPE_LABELS = {
   projekt:    'Projekt',
   idee:       'Idee / Vision',
   erinnerung: 'Erinnerung',
-  objekt:     'Objekt'
+  objekt:     'Objekt',
+  modul:      'Modul',
+  person:     'Person'
 };
 
 const STATUS_LABELS = {
   aktiv:        'Aktiv',
   abgeschlossen:'Abgeschlossen',
   idee:         'Idee / Konzept',
-  verworfen:    'Verworfen'
+  verworfen:    'Verworfen',
+  pausiert:     'Pausiert'
 };
 
 const nodesData = [
@@ -875,7 +883,7 @@ function hexA(hex,a){
 const EDGE_STYLES = {
   related: {color:'rgba(90,110,140,0.26)',  width:1,   dash:null},
   origin:  {color:'rgba(150,195,255,0.45)', width:1.2, dash:null},
-  parent:  {color:e=>hexA(CATS[e.b.cat].color, 0.55), width:1.8, dash:null},
+  parent:  {color:e=>hexA(catOf(e.b.cat).color, 0.55), width:1.8, dash:null},
   memory:  {color:'rgba(201,162,75,0.55)',  width:1.1, dash:[2,3]},
   idea:    {color:'rgba(147,164,190,0.55)', width:1.1, dash:[6,3]}
 };
@@ -934,7 +942,7 @@ function draw(){
     const t=p.rev?1-p.t:p.t;
     const x=p.e.a.x+(p.e.b.x-p.e.a.x)*t;
     const y=p.e.a.y+(p.e.b.y-p.e.a.y)*t;
-    const col=CATS[(p.rev?p.e.a:p.e.b).cat].color;
+    const col=catOf((p.rev?p.e.a:p.e.b).cat).color;
     const glow=ctx.createRadialGradient(x,y,0,x,y,9);
     glow.addColorStop(0,col);
     glow.addColorStop(1,'rgba(0,0,0,0)');
@@ -947,7 +955,7 @@ function draw(){
   /* Knoten */
   NODES.forEach(n=>{
     if(!nodeVisible(n)) return;
-    const col=CATS[n.cat].color;
+    const col=catOf(n.cat).color;
     const isFocus = focus && n.id===focus.id;
     const passesFocus = !focusSet || focusSet.has(n.id);
     const passesSearch = !searchMatchIds || searchMatchIds.has(n.id);
@@ -1133,10 +1141,10 @@ function configureActionButton(btn, target, label){
 
 function selectNode(n){
   selected=n;
-  const col=CATS[n.cat].color;
+  const col=catOf(n.cat).color;
   panel.style.setProperty('--pc',col);
 
-  document.getElementById('pCat').textContent=CATS[n.cat].name;
+  document.getElementById('pCat').textContent=catOf(n.cat).name;
 
   const typeEl=document.getElementById('pType');
   const typeLabel=TYPE_LABELS[n.type];
@@ -1216,7 +1224,7 @@ function selectNode(n){
     .forEach(({other,edge})=>{
       const btn=document.createElement('button');
       btn.className='link-node';
-      btn.style.setProperty('--lc',CATS[other.cat].color);
+      btn.style.setProperty('--lc',catOf(other.cat).color);
       btn.innerHTML=`<span class="dot"></span><span class="rel-tag">${esc(relLabel(edge,n.id))}</span> ${esc(other.label)}`;
       btn.addEventListener('click',()=>selectNode(other));
       linksWrap.appendChild(btn);
