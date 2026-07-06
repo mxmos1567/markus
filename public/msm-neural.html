@@ -214,6 +214,7 @@
 <nav id="filters" aria-label="Kategoriefilter"></nav>
 <div class="hint">
   Klicken = Details · Ziehen = Verschieben<br>
+  Lange drücken = Verbindungen zeigen<br>
   Doppelklick = Anpinnen · Scrollen = Zoom<br>
   Fläche ziehen = Karte bewegen
 </div>
@@ -809,6 +810,10 @@ let dragNode = null, dragMoved = false;
 let panning = false, panLast = null;
 let lastClick = {id:null, t:0};
 let searchMatchIds = null;
+/* Lange drücken: dauerhaft alle direkten Verbindungen eines Punktes zeigen */
+let linkFocus = null;
+let longPressTimer = null, longPressFired = false;
+const LONG_PRESS_MS = 450;
 
 const VIEW_MODES = [
   {id:'all',           label:'Alle',                          test:()=>true},
@@ -907,8 +912,11 @@ function draw(){
   /* Welt-Transformation */
   ctx.setTransform(DPR*view.k, 0, 0, DPR*view.k, DPR*view.x, DPR*view.y);
 
-  const focus = selected || hovered;
+  const focus = selected || hovered || linkFocus;
   const focusSet = focus ? new Set([focus.id, ...neighborIds[focus.id]]) : null;
+  /* Bei dauerhaftem Fokus (Auswahl oder lange gedrückt) auch die Namen
+     aller direkt verbundenen Punkte einblenden — nicht beim bloßen Hover. */
+  const labelNeighbors = focus && focus !== hovered;
 
   /* Kanten */
   EDGES.forEach(e=>{
@@ -992,7 +1000,7 @@ function draw(){
     ctx.beginPath(); ctx.arc(n.x,n.y,r*0.38,0,Math.PI*2); ctx.fill();
 
     /* Beschriftung — kleine Labels bei starkem Rauszoomen ausblenden */
-    const showLabel = isFocus || view.k > 0.55 || n.size >= 13;
+    const showLabel = isFocus || view.k > 0.55 || n.size >= 13 || (labelNeighbors && focusSet.has(n.id));
     if(showLabel){
       ctx.font=(n.id==='msm'?'600 13px':'500 11px')+" 'IBM Plex Mono',monospace";
       ctx.textAlign='center';
@@ -1028,6 +1036,7 @@ canvas.addEventListener('pointerdown', ev=>{
 
   if(pointers.size===2){
     /* Pinch beginnt — Drag/Pan abbrechen */
+    clearTimeout(longPressTimer);
     if(dragNode){ dragNode.fixed=false; dragNode=null; }
     panning=false;
     const [p1,p2]=[...pointers.values()];
@@ -1045,6 +1054,12 @@ canvas.addEventListener('pointerdown', ev=>{
   if(n){
     dragNode=n; dragMoved=false; n.fixed=true;
     canvas.classList.add('dragging');
+    /* Lange drücken (ohne zu ziehen) → Verbindungen dieses Punktes zeigen */
+    longPressFired=false;
+    clearTimeout(longPressTimer);
+    longPressTimer=setTimeout(()=>{
+      if(dragNode===n && !dragMoved){ longPressFired=true; toggleLinkFocus(n); }
+    }, LONG_PRESS_MS);
   }else{
     panning=true; dragMoved=false;
     panLast={x:ev.clientX,y:ev.clientY};
@@ -1072,6 +1087,7 @@ canvas.addEventListener('pointermove', ev=>{
   if(dragNode){
     const w=toWorld(ev.clientX, ev.clientY);
     dragNode.x=w.x; dragNode.y=w.y;
+    if(!dragMoved) clearTimeout(longPressTimer); /* Ziehen → kein Long-Press */
     dragMoved=true;
   }else if(panning && panLast){
     view.x += ev.clientX-panLast.x;
@@ -1093,8 +1109,12 @@ function endPointer(ev){
     const n=dragNode;
     n.fixed=false;
     dragNode=null;
+    clearTimeout(longPressTimer);
     canvas.classList.remove('dragging');
-    if(!dragMoved){
+    if(longPressFired){
+      /* War ein Long-Press → Verbindungen wurden gezeigt, kein normaler Klick */
+      longPressFired=false;
+    }else if(!dragMoved){
       const now=performance.now();
       if(lastClick.id===n.id && now-lastClick.t<350){
         /* Doppelklick: anpinnen / lösen */
@@ -1108,7 +1128,7 @@ function endPointer(ev){
   }else if(panning){
     panning=false; panLast=null;
     canvas.classList.remove('dragging');
-    if(!dragMoved) closePanel();
+    if(!dragMoved){ closePanel(); linkFocus=null; }
   }
 }
 canvas.addEventListener('pointerup', endPointer);
@@ -1233,8 +1253,18 @@ function selectNode(n){
   panel.classList.add('open');
 }
 function closePanel(){ selected=null; panel.classList.remove('open'); }
+
+/* Lange drücken schaltet die Verbindungsansicht eines Punktes an/aus.
+   Das Panel wird dabei geschlossen, damit die Karte frei sichtbar ist. */
+function toggleLinkFocus(node){
+  if(linkFocus===node){ linkFocus=null; return; }
+  linkFocus=node;
+  selected=null;
+  panel.classList.remove('open');
+}
+
 document.getElementById('closeBtn').addEventListener('click',closePanel);
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePanel(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePanel(); linkFocus=null; } });
 
 /* ================= Filter, Ansicht & Suche ================= */
 const nav=document.getElementById('filters');
@@ -1250,6 +1280,7 @@ VIEW_MODES.forEach(v=>{
 viewSelect.addEventListener('change',()=>{
   currentViewMode = VIEW_MODES.find(v=>v.id===viewSelect.value) || VIEW_MODES[0];
   if(selected && !nodeVisible(selected)) closePanel();
+  if(linkFocus && !nodeVisible(linkFocus)) linkFocus=null;
   updateStats();
 });
 nav.appendChild(viewSelect);
@@ -1276,6 +1307,7 @@ Object.entries(CATS).forEach(([key,c])=>{
     if(activeCats.has(key)){ activeCats.delete(key); btn.classList.remove('active'); btn.classList.add('muted'); }
     else{ activeCats.add(key); btn.classList.add('active'); btn.classList.remove('muted'); }
     if(selected && !nodeVisible(selected)) closePanel();
+    if(linkFocus && !nodeVisible(linkFocus)) linkFocus=null;
     updateStats();
   });
   nav.appendChild(btn);
@@ -1291,7 +1323,7 @@ nav.appendChild(resetBtn);
 
 /* ===== Daten laden / exportieren (befüllbare JSON) ===== */
 function reloadWith(data){
-  closePanel(); hovered=null; pulses.length=0;
+  closePanel(); hovered=null; linkFocus=null; pulses.length=0;
   applyData(data);
   view.x=0; view.y=0; view.k=1;
   updateStats();
