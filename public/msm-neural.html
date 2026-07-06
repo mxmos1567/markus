@@ -724,22 +724,11 @@ function memoryHref(n){
   return null;
 }
 
-const graph = buildGraph(nodesData);
-const NODES = graph.nodes;
-const byId = graph.byId;
-const EDGES = graph.edges;
-const neighborIds = graph.neighborIds;
-const edgesByNode = graph.edgesByNode;
-
-NODES.forEach(n=>{
-  const relatedTitles = edgesByNode[n.id].map(({other})=>other.label);
-  const originLabel = n.origin ? (byId[n.origin] ? byId[n.origin].label : n.origin) : '';
-  n._searchText = [
-    n.label, n.shortDescription, n.longDescription, originLabel,
-    CATS[n.cat] && CATS[n.cat].name, TYPE_LABELS[n.type],
-    ...n.tags, ...relatedTitles
-  ].filter(Boolean).join(' ').toLowerCase();
-});
+/* Aktuelle Datenquelle + veränderbare Graph-Bindings.
+   Werden von applyData() (weiter unten, nach resize()) befüllt und beim
+   Nachladen einer JSON erneut gesetzt. */
+let currentData = nodesData;
+let NODES, byId, EDGES, neighborIds, edgesByNode;
 
 /* ================= Setup ================= */
 const canvas = document.getElementById('net');
@@ -764,16 +753,45 @@ const clusterAngle = {
   hub:0, hw:-2.4, sw:0.5, pyro:2.6, write:-0.7, print:1.6, ki:-1.4, idea:3.1,
   memory:2.0, machine:-3.0, workshop:-0.05
 };
-NODES.forEach(n=>{
-  if(n.id==='msm'){ n.x = W/2; n.y = H/2; }
-  else{
-    const a = (clusterAngle[n.cat] ?? 0) + (Math.random()-0.5)*1.1;
-    const r = Math.min(W,H)*0.30 + Math.random()*140;
-    n.x = W/2 + Math.cos(a)*r;
-    n.y = H/2 + Math.sin(a)*r;
-  }
-  n.vx=0; n.vy=0; n.fixed=false; n.pinned=false;
-});
+
+/* Baut Graph, Positionen und Suchindex aus einer nodesData-Liste auf.
+   Erneut aufrufbar — so aktualisiert sich das Netz, wenn eine neue JSON
+   geladen wird, ohne die Datei zu bearbeiten. */
+function applyData(data){
+  currentData = data;
+  const graph = buildGraph(data);
+  NODES = graph.nodes; byId = graph.byId; EDGES = graph.edges;
+  neighborIds = graph.neighborIds; edgesByNode = graph.edgesByNode;
+
+  NODES.forEach(n=>{
+    if(n.id==='msm'){ n.x = W/2; n.y = H/2; }
+    else{
+      const a = (clusterAngle[n.cat] ?? 0) + (Math.random()-0.5)*1.1;
+      const r = Math.min(W,H)*0.30 + Math.random()*140;
+      n.x = W/2 + Math.cos(a)*r;
+      n.y = H/2 + Math.sin(a)*r;
+    }
+    n.vx=0; n.vy=0; n.fixed=false; n.pinned=false;
+
+    const relatedTitles = edgesByNode[n.id].map(({other})=>other.label);
+    const originLabel = n.origin ? (byId[n.origin] ? byId[n.origin].label : n.origin) : '';
+    n._searchText = [
+      n.label, n.shortDescription, n.longDescription, originLabel,
+      CATS[n.cat] && CATS[n.cat].name, TYPE_LABELS[n.type],
+      ...(n.tags||[]), ...relatedTitles
+    ].filter(Boolean).join(' ').toLowerCase();
+  });
+}
+
+/* Startdaten: zuletzt geladene JSON aus localStorage, sonst eingebaute nodesData */
+(function initData(){
+  let data = nodesData;
+  try{
+    const saved = localStorage.getItem('msm-neural-data');
+    if(saved){ const parsed = JSON.parse(saved); if(Array.isArray(parsed) && parsed.length) data = parsed; }
+  }catch(e){/* localStorage evtl. nicht verfügbar (z. B. file://) — dann Standarddaten */}
+  applyData(data);
+})();
 
 /* ================= Zustand ================= */
 let activeCats = new Set(Object.keys(CATS));
@@ -1262,6 +1280,58 @@ resetBtn.style.setProperty('--c','#C98A4B');
 resetBtn.textContent='⟲ Ansicht';
 resetBtn.addEventListener('click',()=>{ view.x=0; view.y=0; view.k=1; });
 nav.appendChild(resetBtn);
+
+/* ===== Daten laden / exportieren (befüllbare JSON) ===== */
+function reloadWith(data){
+  closePanel(); hovered=null; pulses.length=0;
+  applyData(data);
+  view.x=0; view.y=0; view.k=1;
+  updateStats();
+}
+
+const loadLabel=document.createElement('label');
+loadLabel.className='chip util'; loadLabel.style.cursor='pointer';
+loadLabel.style.setProperty('--c','#C98A4B');
+loadLabel.textContent='⭱ Daten laden';
+const loadInput=document.createElement('input');
+loadInput.type='file'; loadInput.accept='.json,application/json'; loadInput.style.display='none';
+loadLabel.appendChild(loadInput);
+loadInput.addEventListener('change', async ev=>{
+  const f = ev.target.files && ev.target.files[0];
+  if(!f) return;
+  try{
+    const parsed = JSON.parse(await f.text());
+    const data = Array.isArray(parsed) ? parsed : parsed.nodesData;
+    if(!Array.isArray(data) || !data.length){ alert('Keine gültigen Knoten in der Datei gefunden.'); return; }
+    reloadWith(data);
+    try{ localStorage.setItem('msm-neural-data', JSON.stringify(data)); }catch(e){}
+  }catch(err){ alert('JSON konnte nicht geladen werden:\n'+err.message); }
+  ev.target.value='';
+});
+nav.appendChild(loadLabel);
+
+const exportBtn=document.createElement('button');
+exportBtn.className='chip util';
+exportBtn.style.setProperty('--c','#C98A4B');
+exportBtn.textContent='⭳ Export';
+exportBtn.title='Aktuelle Daten als JSON-Vorlage herunterladen';
+exportBtn.addEventListener('click', ()=>{
+  const blob=new Blob([JSON.stringify(currentData,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='msm-neural-data.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+nav.appendChild(exportBtn);
+
+const resetDataBtn=document.createElement('button');
+resetDataBtn.className='chip util';
+resetDataBtn.textContent='⭮ Standarddaten';
+resetDataBtn.title='Gespeicherte JSON verwerfen und die eingebauten Beispieldaten laden';
+resetDataBtn.addEventListener('click', ()=>{
+  try{ localStorage.removeItem('msm-neural-data'); }catch(e){}
+  reloadWith(nodesData);
+});
+nav.appendChild(resetDataBtn);
 
 /* ================= Statistik ================= */
 function updateStats(){
