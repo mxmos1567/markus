@@ -22,8 +22,16 @@
     font-family:'IBM Plex Sans',sans-serif;
     -webkit-font-smoothing:antialiased;
     touch-action:none;
+    /* Keine Text-/Element-Markierung beim Ziehen oder langen Drücken
+       (verhindert den hängenbleibenden "blauen" Markier-Hintergrund). */
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    user-select:none;
+    -webkit-touch-callout:none;
   }
-  canvas{display:block;position:fixed;inset:0;cursor:grab;touch-action:none}
+  /* Eingaben (Suche) dürfen weiterhin markierbar sein */
+  input,textarea{-webkit-user-select:text;user-select:text}
+  canvas{display:block;position:fixed;inset:0;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   canvas.dragging{cursor:grabbing}
 
   header{
@@ -813,7 +821,9 @@ let searchMatchIds = null;
 /* Lange drücken: dauerhaft alle direkten Verbindungen eines Punktes zeigen */
 let linkFocus = null;
 let longPressTimer = null, longPressFired = false;
-const LONG_PRESS_MS = 420;
+/* Bewusst längeres Drücken nötig, damit es nicht schon beim normalen
+   Klicken auslöst. */
+const LONG_PRESS_MS = 650;
 /* Erst ab dieser Fingerbewegung zählt es als Ziehen (sonst Tap/Long-Press).
    So bricht leichtes Wackeln beim Halten die Geste nicht ab. */
 const DRAG_THRESHOLD = 8;
@@ -1034,7 +1044,17 @@ function nodeAt(wx,wy){
 const pointers = new Map();
 let pinchStart = null;
 
+/* Kein Kontextmenü / keine Textmarkierung beim langen Drücken */
+canvas.addEventListener('contextmenu', ev=>ev.preventDefault());
+
+function clearSelection(){
+  const sel = window.getSelection && window.getSelection();
+  if(sel && sel.rangeCount) sel.removeAllRanges();
+}
+
 canvas.addEventListener('pointerdown', ev=>{
+  ev.preventDefault();
+  clearSelection();
   canvas.setPointerCapture(ev.pointerId);
   pointers.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
 
@@ -1111,6 +1131,7 @@ canvas.addEventListener('pointermove', ev=>{
 function endPointer(ev){
   pointers.delete(ev.pointerId);
   if(pointers.size<2) pinchStart=null;
+  clearSelection();
 
   if(dragNode){
     const n=dragNode;
